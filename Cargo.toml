@@ -1,5 +1,5 @@
 [package]
-name = "rust_template"
+name = "wild_screen_alloc"
 version = "0.1.0"
 edition = "2021"
 
