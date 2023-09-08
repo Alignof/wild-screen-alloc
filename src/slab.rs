@@ -54,7 +54,7 @@ impl SlabHead {
     }
 
     /// Return empty head.
-    pub fn new_empty(kind: SlabKind) -> Self {
+    fn new_empty(kind: SlabKind) -> Self {
         SlabHead {
             len: 0,
             kind,
@@ -68,6 +68,15 @@ impl SlabHead {
         slab.next = self.head.take();
         self.len += 1;
         self.head = Some(slab);
+    }
+
+    /// Pop free object.
+    fn pop(&mut self) -> Option<&'static mut FreeObject> {
+        self.head.take().map(|node| {
+            self.head = node.next.take();
+            self.len -= 1;
+            node
+        })
     }
 }
 
@@ -90,6 +99,10 @@ impl SlabFreeList {
             partial: SlabHead::new_empty(SlabKind::Partial),
             empty: SlabHead::new(start_addr, object_size, num_of_object),
         }
+    }
+
+    fn pop_from_partial(&mut self) -> Option<&'static mut FreeObject> {
+        self.partial.pop()
     }
 }
 
