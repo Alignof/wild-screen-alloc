@@ -1,7 +1,10 @@
 #![no_std]
 
+extern crate alloc;
+
 mod slab;
 
+use alloc::alloc::{alloc, AllocError, Layout};
 use slab::{SlabCache, SlabSize};
 
 /// Constants.
@@ -64,6 +67,25 @@ impl SlabAllocator {
                 slab_allocated_size,
                 SlabSize::Slab4096Bytes,
             ),
+        }
+    }
+    fn get_slab_size(layout: &Layout) -> SlabSize {
+        let slab_size = match layout.size() {
+            0..=64 => SlabSize::Slab64Bytes,
+            65..=128 => SlabSize::Slab128Bytes,
+            129..=256 => SlabSize::Slab256Bytes,
+            257..=512 => SlabSize::Slab512Bytes,
+            513..=1024 => SlabSize::Slab1024Bytes,
+            1025..=2048 => SlabSize::Slab2048Bytes,
+            2049..=4096 => SlabSize::Slab4096Bytes,
+            _ => panic!("unexpected size"),
+        };
+
+        if layout.align() <= slab_size as usize {
+            slab_size
+        } else {
+            // unaligned layout
+            SlabSize::Slab4096Bytes
         }
     }
 }
