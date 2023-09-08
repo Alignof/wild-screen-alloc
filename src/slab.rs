@@ -1,3 +1,4 @@
+/// An enum that indicate slab object size
 #[derive(Copy, Clone)]
 pub enum SlabSize {
     Slab64Bytes = 64,
@@ -9,16 +10,23 @@ pub enum SlabSize {
     Slab4096Bytes = 4096,
 }
 
+/// Type of Slab
+/// * Full - all objects are allocated.
+/// * Partial - some objects are allocated.
+/// * Empty - no objects are allocated.
 enum SlabKind {
     Full,
     Partial,
     Empty,
 }
 
+/// A linked list managing free objects.
+/// This struct is placed unused heap space.
 struct FreeObject {
     next: Option<&'static mut Self>,
 }
 
+/// Slab header.
 struct SlabHead {
     len: usize,
     kind: SlabKind,
@@ -27,6 +35,7 @@ struct SlabHead {
 }
 
 impl SlabHead {
+    /// Initialize free objects list and return new SlabHead.
     pub unsafe fn new(start_addr: usize, object_size: SlabSize, num_of_object: usize) -> Self {
         let mut new_list = Self::new_empty(SlabKind::Empty);
         for off in (0..num_of_object as usize).rev() {
@@ -37,12 +46,7 @@ impl SlabHead {
         new_list
     }
 
-    fn push(&mut self, slab: &'static mut FreeObject) {
-        slab.next = self.head.take();
-        self.len += 1;
-        self.head = Some(slab);
-    }
-
+    /// Return empty head.
     pub fn new_empty(kind: SlabKind) -> Self {
         SlabHead {
             len: 0,
@@ -51,8 +55,17 @@ impl SlabHead {
             next: None,
         }
     }
+
+    /// Push new free object.
+    fn push(&mut self, slab: &'static mut FreeObject) {
+        slab.next = self.head.take();
+        self.len += 1;
+        self.head = Some(slab);
+    }
 }
 
+/// Slab free lists.
+/// It has three lists to match `SlabKind`.
 struct SlabFreeList {
     full: SlabHead,
     partial: SlabHead,
@@ -60,6 +73,7 @@ struct SlabFreeList {
 }
 
 impl SlabFreeList {
+    /// Create new slab lists.
     pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: SlabSize) -> Self {
         let num_of_object = alloc_size / object_size as usize;
         assert!(num_of_object > 0);
@@ -72,12 +86,15 @@ impl SlabFreeList {
     }
 }
 
+/// Data unit of each slab size.
 pub struct SlabCache {
+    /// Size of object. (e.g. 64byte, 128byte)
     object_size: SlabSize,
     slab_free_list: SlabFreeList,
 }
 
 impl SlabCache {
+    /// Create new slab cache.
     pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: SlabSize) -> Self {
         SlabCache {
             object_size,

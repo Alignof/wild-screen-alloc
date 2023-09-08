@@ -4,11 +4,15 @@ mod slab;
 
 use slab::{SlabCache, SlabSize};
 
+/// Constants.
 mod constants {
+    /// Number of slab allocator size.
     pub const NUM_OF_SLABS: usize = 8;
+    /// Page size.
     pub const PAGE_SIZE: usize = 4096;
 }
 
+/// Slab allocator that provide global allocator.
 pub struct SlabAllocator {
     slab_64_bytes: SlabCache,
     slab_128_bytes: SlabCache,
@@ -20,6 +24,7 @@ pub struct SlabAllocator {
 }
 
 impl SlabAllocator {
+    /// Return new SlabAllocator.
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         assert!(
             start_addr % constants::PAGE_SIZE == 0,
