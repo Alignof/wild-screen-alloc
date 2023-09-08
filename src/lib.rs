@@ -38,3 +38,26 @@ impl SlabAllocator {
         }
     }
 }
+
+#[cfg(test)]
+mod alloc_tests {
+    use crate::{constants, SlabAllocator};
+
+    const HEAP_SIZE: usize = 8 * constants::PAGE_SIZE;
+
+    #[repr(align(4096))]
+    struct DummyHeap {
+        heap_space: [u8; HEAP_SIZE],
+    }
+
+    #[test]
+    fn alloc_heap() {
+        let dummy_heap = DummyHeap {
+            heap_space: [0_u8; HEAP_SIZE],
+        };
+
+        unsafe {
+            SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+        }
+    }
+}
