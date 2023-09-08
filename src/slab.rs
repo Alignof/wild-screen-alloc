@@ -1,3 +1,5 @@
+use alloc::alloc::Layout;
+
 /// An enum that indicate slab object size
 #[derive(Copy, Clone)]
 pub enum SlabSize {
@@ -119,6 +121,16 @@ impl SlabCache {
         SlabCache {
             object_size,
             slab_free_list: SlabFreeList::new(start_addr, alloc_size, object_size),
+        }
+    }
+
+    pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
+        match self.slab_free_list.pop_from_partial() {
+            Some(object) => object.addr() as *mut u8,
+            None => match self.slab_free_list.pop_from_empty() {
+                Some(object) => object.addr() as *mut u8,
+                None => core::ptr::null_mut(),
+            },
         }
     }
 }
