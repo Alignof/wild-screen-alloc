@@ -28,12 +28,9 @@ struct SlabHead {
 
 impl SlabHead {
     pub unsafe fn new(start_addr: usize, object_size: SlabSize, num_of_object: usize) -> Self {
-        let head_slab_addr = ((start_addr + core::mem::size_of::<SlabHead>()) as *const u8)
-            .align_offset(object_size as usize) as usize;
-
         let mut new_list = Self::new_empty(SlabKind::Empty);
         for off in (0..num_of_object as usize).rev() {
-            let new_object = (head_slab_addr + off * object_size as usize) as *mut FreeObject;
+            let new_object = (start_addr + off * object_size as usize) as *mut FreeObject;
             new_list.push(&mut *new_object);
         }
 
@@ -64,7 +61,7 @@ struct SlabFreeList {
 
 impl SlabFreeList {
     pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: SlabSize) -> Self {
-        let num_of_object = (alloc_size - core::mem::size_of::<SlabHead>()) / object_size as usize;
+        let num_of_object = alloc_size / object_size as usize;
         assert!(num_of_object > 0);
 
         SlabFreeList {
