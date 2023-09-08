@@ -14,28 +14,30 @@ enum SlabKind {
     Empty,
 }
 
-struct Slab {
+struct SlabHead {
     kind: SlabKind,
     next: Option<&'static mut Self>,
 }
 
 struct SlabList {
     len: usize,
-    head: Option<&'static mut Slab>,
+    head: Option<&'static mut SlabHead>,
 }
 
 impl SlabList {
     pub unsafe fn new(start_addr: usize, object_size: usize, num_of_object: usize) -> Self {
+        let head_slab_addr = ((start_addr + core::mem::size_of::<SlabHead>()) as *const u8)
+            .align_offset(object_size) as usize;
         let mut new_list = Self::new_empty();
-        for off in 0..num_of_object {
-            let new_object = (start_addr + off * object_size) as *mut Slab;
+        for off in (0..num_of_object).rev() {
+            let new_object = (head_slab_addr + off * object_size) as *mut SlabHead;
             new_list.push(&mut *new_object);
         }
 
         new_list
     }
 
-    fn push(&mut self, slab: &'static mut Slab) {
+    fn push(&mut self, slab: &'static mut SlabHead) {
         slab.next = self.head.take();
         self.len += 1;
         self.head = Some(slab);
@@ -53,7 +55,10 @@ struct SlabFreeList {
 }
 
 impl SlabFreeList {
-    pub unsafe fn new(start_addr: usize, object_size: usize, num_of_object: usize) -> Self {
+    pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: usize) -> Self {
+        let num_of_object = (alloc_size - core::mem::size_of::<SlabHead>()) / object_size;
+        assert!(num_of_object > 0);
+
         SlabFreeList {
             full: SlabList::new_empty(),
             partial: SlabList::new_empty(),
@@ -69,10 +74,9 @@ pub struct SlabCache {
 
 impl SlabCache {
     pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: usize) -> Self {
-        let num_of_object = alloc_size / object_size;
         SlabCache {
             object_size,
-            slab_free_list: SlabFreeList::new(start_addr, object_size, num_of_object),
+            slab_free_list: SlabFreeList::new(start_addr, alloc_size, object_size),
         }
     }
 }
