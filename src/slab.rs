@@ -15,45 +15,51 @@ enum SlabKind {
     Empty,
 }
 
-struct SlabHead {
-    kind: SlabKind,
+struct FreeObject {
     next: Option<&'static mut Self>,
 }
 
-struct SlabList {
+struct SlabHead {
     len: usize,
-    head: Option<&'static mut SlabHead>,
+    kind: SlabKind,
+    head: Option<&'static mut FreeObject>,
+    next: Option<&'static mut Self>,
 }
 
-impl SlabList {
+impl SlabHead {
     pub unsafe fn new(start_addr: usize, object_size: SlabSize, num_of_object: usize) -> Self {
         let head_slab_addr = ((start_addr + core::mem::size_of::<SlabHead>()) as *const u8)
             .align_offset(object_size as usize) as usize;
 
-        let mut new_list = Self::new_empty();
+        let mut new_list = Self::new_empty(SlabKind::Empty);
         for off in (0..num_of_object as usize).rev() {
-            let new_object = (head_slab_addr + off * object_size as usize) as *mut SlabHead;
+            let new_object = (head_slab_addr + off * object_size as usize) as *mut FreeObject;
             new_list.push(&mut *new_object);
         }
 
         new_list
     }
 
-    fn push(&mut self, slab: &'static mut SlabHead) {
+    fn push(&mut self, slab: &'static mut FreeObject) {
         slab.next = self.head.take();
         self.len += 1;
         self.head = Some(slab);
     }
 
-    pub fn new_empty() -> Self {
-        SlabList { len: 0, head: None }
+    pub fn new_empty(kind: SlabKind) -> Self {
+        SlabHead {
+            len: 0,
+            kind,
+            head: None,
+            next: None,
+        }
     }
 }
 
 struct SlabFreeList {
-    full: SlabList,
-    partial: SlabList,
-    empty: SlabList,
+    full: SlabHead,
+    partial: SlabHead,
+    empty: SlabHead,
 }
 
 impl SlabFreeList {
@@ -62,9 +68,9 @@ impl SlabFreeList {
         assert!(num_of_object > 0);
 
         SlabFreeList {
-            full: SlabList::new_empty(),
-            partial: SlabList::new_empty(),
-            empty: SlabList::new(start_addr, object_size, num_of_object),
+            full: SlabHead::new_empty(SlabKind::Full),
+            partial: SlabHead::new_empty(SlabKind::Partial),
+            empty: SlabHead::new(start_addr, object_size, num_of_object),
         }
     }
 }
