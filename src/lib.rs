@@ -4,7 +4,7 @@ extern crate alloc;
 
 mod slab;
 
-use alloc::alloc::{alloc, AllocError, Layout};
+use alloc::alloc::Layout;
 use slab::{SlabCache, SlabSize};
 
 /// Constants.
@@ -69,6 +69,21 @@ impl SlabAllocator {
             ),
         }
     }
+
+    /// Allocates a new object.
+    pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
+        match Self::get_slab_size(&layout) {
+            slab::SlabSize::Slab64Bytes => self.slab_64_bytes.allocate(layout),
+            slab::SlabSize::Slab128Bytes => self.slab_64_bytes.allocate(layout),
+            slab::SlabSize::Slab256Bytes => self.slab_64_bytes.allocate(layout),
+            slab::SlabSize::Slab512Bytes => self.slab_64_bytes.allocate(layout),
+            slab::SlabSize::Slab1024Bytes => self.slab_64_bytes.allocate(layout),
+            slab::SlabSize::Slab2048Bytes => self.slab_64_bytes.allocate(layout),
+            slab::SlabSize::Slab4096Bytes => self.slab_64_bytes.allocate(layout),
+            _ => unimplemented!(),
+        }
+    }
+
     fn get_slab_size(layout: &Layout) -> SlabSize {
         let slab_size = match layout.size() {
             0..=64 => SlabSize::Slab64Bytes,
