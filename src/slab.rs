@@ -1,12 +1,12 @@
 #[derive(Copy, Clone)]
 pub enum SlabSize {
-    Slab64Bytes,
-    Slab128Bytes,
-    Slab256Bytes,
-    Slab512Bytes,
-    Slab1024Bytes,
-    Slab2048Bytes,
-    Slab4096Bytes,
+    Slab64Bytes = 64,
+    Slab128Bytes = 128,
+    Slab256Bytes = 256,
+    Slab512Bytes = 512,
+    Slab1024Bytes = 1024,
+    Slab2048Bytes = 2048,
+    Slab4096Bytes = 4096,
 }
 
 enum SlabKind {
