@@ -2,7 +2,7 @@
 
 mod slab;
 
-use slab::SlabCache;
+use slab::{SlabCache, SlabSize};
 
 mod constants {
     pub const NUM_OF_SLABS: usize = 8;
@@ -26,15 +26,39 @@ impl SlabAllocator {
             "Start address should be page aligned"
         );
 
-        let alloc_size = heap_size / constants::NUM_OF_SLABS;
+        let slab_allocated_size = heap_size / constants::NUM_OF_SLABS;
         SlabAllocator {
-            slab_64_bytes: SlabCache::new(start_addr, alloc_size, 64),
-            slab_128_bytes: SlabCache::new(start_addr + alloc_size, alloc_size, 128),
-            slab_256_bytes: SlabCache::new(start_addr + 2 * alloc_size, alloc_size, 256),
-            slab_512_bytes: SlabCache::new(start_addr + 3 * alloc_size, alloc_size, 512),
-            slab_1024_bytes: SlabCache::new(start_addr + 4 * alloc_size, alloc_size, 1024),
-            slab_2048_bytes: SlabCache::new(start_addr + 5 * alloc_size, alloc_size, 2048),
-            slab_4096_bytes: SlabCache::new(start_addr + 6 * alloc_size, alloc_size, 4096),
+            slab_64_bytes: SlabCache::new(start_addr, slab_allocated_size, SlabSize::Slab64Bytes),
+            slab_128_bytes: SlabCache::new(
+                start_addr + slab_allocated_size,
+                slab_allocated_size,
+                SlabSize::Slab128Bytes,
+            ),
+            slab_256_bytes: SlabCache::new(
+                start_addr + 2 * slab_allocated_size,
+                slab_allocated_size,
+                SlabSize::Slab256Bytes,
+            ),
+            slab_512_bytes: SlabCache::new(
+                start_addr + 3 * slab_allocated_size,
+                slab_allocated_size,
+                SlabSize::Slab512Bytes,
+            ),
+            slab_1024_bytes: SlabCache::new(
+                start_addr + 4 * slab_allocated_size,
+                slab_allocated_size,
+                SlabSize::Slab1024Bytes,
+            ),
+            slab_2048_bytes: SlabCache::new(
+                start_addr + 5 * slab_allocated_size,
+                slab_allocated_size,
+                SlabSize::Slab2048Bytes,
+            ),
+            slab_4096_bytes: SlabCache::new(
+                start_addr + 6 * slab_allocated_size,
+                slab_allocated_size,
+                SlabSize::Slab4096Bytes,
+            ),
         }
     }
 }
