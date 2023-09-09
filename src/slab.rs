@@ -1,5 +1,3 @@
-use alloc::alloc::Layout;
-
 /// An enum that indicate slab object size
 #[derive(Copy, Clone)]
 pub enum SlabSize {
@@ -44,10 +42,10 @@ struct SlabHead {
 }
 
 impl SlabHead {
-    /// Initialize free objects list and return new SlabHead.
+    /// Initialize free objects list and return new `SlabHead`.
     pub unsafe fn new(start_addr: usize, object_size: SlabSize, num_of_object: usize) -> Self {
         let mut new_list = Self::new_empty(SlabKind::Empty);
-        for off in (0..num_of_object as usize).rev() {
+        for off in (0..num_of_object).rev() {
             let new_object = (start_addr + off * object_size as usize) as *mut FreeObject;
             new_list.push(&mut *new_object);
         }
@@ -132,7 +130,7 @@ impl SlabCache {
     }
 
     /// Return object address according to `layout.size`.
-    pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
+    pub fn allocate(&mut self) -> *mut u8 {
         match self.slab_free_list.pop_from_partial() {
             Some(object) => object.addr() as *mut u8,
             None => match self.slab_free_list.pop_from_empty() {
@@ -144,7 +142,7 @@ impl SlabCache {
 
     /// Free object according to `layout.size`.
     pub fn deallocate(&mut self, ptr: *mut u8) {
-        let ptr = ptr as *mut FreeObject;
+        let ptr = ptr.cast::<FreeObject>();
         unsafe {
             self.slab_free_list.empty.push(&mut *ptr);
         }

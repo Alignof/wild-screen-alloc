@@ -28,7 +28,13 @@ pub struct SlabAllocator {
 }
 
 impl SlabAllocator {
-    /// Return new SlabAllocator.
+    /// Return new `SlabAllocator`.
+    /// # Safety
+    /// `start_addr` must be aligned 4096.
+    ///
+    /// # Panics
+    /// If `start_addr` isn't aligned 4096, this function will panic.
+    #[must_use]
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         assert!(
             start_addr % constants::PAGE_SIZE == 0,
@@ -74,28 +80,28 @@ impl SlabAllocator {
     /// Allocates a new object.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
         match Self::get_slab_size(&layout) {
-            slab::SlabSize::Slab64Bytes => self.slab_64_bytes.allocate(layout),
-            slab::SlabSize::Slab128Bytes => self.slab_64_bytes.allocate(layout),
-            slab::SlabSize::Slab256Bytes => self.slab_64_bytes.allocate(layout),
-            slab::SlabSize::Slab512Bytes => self.slab_64_bytes.allocate(layout),
-            slab::SlabSize::Slab1024Bytes => self.slab_64_bytes.allocate(layout),
-            slab::SlabSize::Slab2048Bytes => self.slab_64_bytes.allocate(layout),
-            slab::SlabSize::Slab4096Bytes => self.slab_64_bytes.allocate(layout),
-            _ => unimplemented!(),
+            slab::SlabSize::Slab64Bytes => self.slab_64_bytes.allocate(),
+            slab::SlabSize::Slab128Bytes => self.slab_128_bytes.allocate(),
+            slab::SlabSize::Slab256Bytes => self.slab_256_bytes.allocate(),
+            slab::SlabSize::Slab512Bytes => self.slab_512_bytes.allocate(),
+            slab::SlabSize::Slab1024Bytes => self.slab_1024_bytes.allocate(),
+            slab::SlabSize::Slab2048Bytes => self.slab_2048_bytes.allocate(),
+            slab::SlabSize::Slab4096Bytes => self.slab_4096_bytes.allocate(),
         }
     }
 
     /// Deallocate(free) object.
+    /// # Safety
+    /// Given pointer must be valid.
     pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
         match Self::get_slab_size(&layout) {
             slab::SlabSize::Slab64Bytes => self.slab_64_bytes.deallocate(ptr),
-            slab::SlabSize::Slab128Bytes => self.slab_64_bytes.deallocate(ptr),
-            slab::SlabSize::Slab256Bytes => self.slab_64_bytes.deallocate(ptr),
-            slab::SlabSize::Slab512Bytes => self.slab_64_bytes.deallocate(ptr),
-            slab::SlabSize::Slab1024Bytes => self.slab_64_bytes.deallocate(ptr),
-            slab::SlabSize::Slab2048Bytes => self.slab_64_bytes.deallocate(ptr),
-            slab::SlabSize::Slab4096Bytes => self.slab_64_bytes.deallocate(ptr),
-            _ => unimplemented!(),
+            slab::SlabSize::Slab128Bytes => self.slab_128_bytes.deallocate(ptr),
+            slab::SlabSize::Slab256Bytes => self.slab_256_bytes.deallocate(ptr),
+            slab::SlabSize::Slab512Bytes => self.slab_512_bytes.deallocate(ptr),
+            slab::SlabSize::Slab1024Bytes => self.slab_1024_bytes.deallocate(ptr),
+            slab::SlabSize::Slab2048Bytes => self.slab_2048_bytes.deallocate(ptr),
+            slab::SlabSize::Slab4096Bytes => self.slab_4096_bytes.deallocate(ptr),
         }
     }
 
@@ -125,6 +131,9 @@ pub struct LockedAllocator(Mutex<SlabAllocator>);
 
 impl LockedAllocator {
     /// Create new allocator locked by mutex.
+    /// # Safety
+    /// `start_addr` must be aligned 4096.
+    #[must_use]
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         LockedAllocator(Mutex::new(SlabAllocator::new(start_addr, heap_size)))
     }
@@ -138,7 +147,7 @@ unsafe impl GlobalAlloc for LockedAllocator {
 
     /// Just call `SlabAllocator::deallocate`.
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        self.0.lock().deallocate(ptr, layout)
+        self.0.lock().deallocate(ptr, layout);
     }
 }
 
