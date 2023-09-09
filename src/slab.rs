@@ -104,10 +104,12 @@ impl SlabFreeList {
         }
     }
 
+    /// Get free object from partial
     fn pop_from_partial(&mut self) -> Option<&'static mut FreeObject> {
         self.partial.pop()
     }
 
+    /// Get free object from empty
     fn pop_from_empty(&mut self) -> Option<&'static mut FreeObject> {
         self.empty.pop()
     }
@@ -129,6 +131,7 @@ impl SlabCache {
         }
     }
 
+    /// Return object address according to `layout.size`.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
         match self.slab_free_list.pop_from_partial() {
             Some(object) => object.addr() as *mut u8,

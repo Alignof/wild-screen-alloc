@@ -84,6 +84,7 @@ impl SlabAllocator {
         }
     }
 
+    /// Convert `layout.size` to `SlabSize`
     fn get_slab_size(layout: &Layout) -> SlabSize {
         let slab_size = match layout.size() {
             0..=64 => SlabSize::Slab64Bytes,
