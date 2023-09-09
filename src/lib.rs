@@ -130,7 +130,7 @@ impl SlabAllocator {
 pub struct LockedAllocator(Mutex<Option<SlabAllocator>>);
 
 impl LockedAllocator {
-    /// Return empty LockedAllocator.
+    /// Return empty `LockedAllocator`.
     /// This method exist for to initialize after heap address available.
     /// ```
     /// use wild_scree_alloc::LockedAllocator;
@@ -165,7 +165,6 @@ impl LockedAllocator {
     /// Create new allocator locked by mutex.
     /// # Safety
     /// `start_addr` must be aligned 4096.
-    #[must_use]
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         LockedAllocator(Mutex::new(Some(SlabAllocator::new(start_addr, heap_size))))
     }
@@ -196,7 +195,6 @@ mod alloc_tests {
     use core::mem::{align_of, size_of};
 
     const HEAP_SIZE: usize = 8 * constants::PAGE_SIZE;
-
     #[repr(align(4096))]
     struct DummyHeap {
         heap_space: [u8; HEAP_SIZE],
