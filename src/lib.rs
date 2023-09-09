@@ -127,29 +127,29 @@ impl SlabAllocator {
     }
 }
 
-pub struct LockedAllocator(Mutex<Option<SlabAllocator>>);
+pub struct WildScreenAlloc(Mutex<Option<SlabAllocator>>);
 
-impl LockedAllocator {
-    /// Return empty `LockedAllocator`.
+impl WildScreenAlloc {
+    /// Return empty `WildScreenAlloc`.
     /// This method exist for to initialize after heap address available.
     /// ```no_run
-    /// use wild_screen_alloc::LockedAllocator;
+    /// use wild_screen_alloc::WildScreenAlloc;
     ///
     /// #[global_allocator]
-    /// static mut ALLOCATOR: LockedAllocator = LockedAllocator::empty();
+    /// static ALLOCATOR: WildScreenAlloc = WildScreenAlloc::empty();
     ///
     /// pub fn init_heap() { /* initialize ALLOCATOR */ }
     /// ```
     pub const fn empty() -> Self {
-        LockedAllocator(Mutex::new(None))
+        WildScreenAlloc(Mutex::new(None))
     }
 
     /// Initialize allocator.
     /// ```no_run
-    /// use wild_screen_alloc::LockedAllocator;
+    /// use wild_screen_alloc::WildScreenAlloc;
     ///
     /// #[global_allocator]
-    /// static mut ALLOCATOR: LockedAllocator = LockedAllocator::empty();
+    /// static mut ALLOCATOR: WildScreenAlloc = WildScreenAlloc::empty();
     ///
     /// pub fn init_heap() {
     ///     let heap_start = 0x8020_0000;
@@ -170,11 +170,11 @@ impl LockedAllocator {
     /// # Safety
     /// `start_addr` must be aligned 4096.
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
-        LockedAllocator(Mutex::new(Some(SlabAllocator::new(start_addr, heap_size))))
+        WildScreenAlloc(Mutex::new(Some(SlabAllocator::new(start_addr, heap_size))))
     }
 }
 
-unsafe impl GlobalAlloc for LockedAllocator {
+unsafe impl GlobalAlloc for WildScreenAlloc {
     /// Just call `SlabAllocator::allocte`.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         match *self.0.lock() {
