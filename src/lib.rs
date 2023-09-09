@@ -132,11 +132,11 @@ pub struct LockedAllocator(Mutex<Option<SlabAllocator>>);
 impl LockedAllocator {
     /// Return empty `LockedAllocator`.
     /// This method exist for to initialize after heap address available.
-    /// ```
-    /// use wild_scree_alloc::LockedAllocator;
+    /// ```no_run
+    /// use wild_screen_alloc::LockedAllocator;
     ///
     /// #[global_allocator]
-    /// static ALLOCATOR: LockedAllocator = LockedAllocator::empty();
+    /// static mut ALLOCATOR: LockedAllocator = LockedAllocator::empty();
     ///
     /// pub fn init_heap() { /* initialize ALLOCATOR */ }
     /// ```
@@ -145,13 +145,17 @@ impl LockedAllocator {
     }
 
     /// Initialize allocator.
-    /// ```
+    /// ```no_run
+    /// use wild_screen_alloc::LockedAllocator;
+    ///
+    /// #[global_allocator]
+    /// static mut ALLOCATOR: LockedAllocator = LockedAllocator::empty();
+    ///
     /// pub fn init_heap() {
-    ///     let heap_start = ...;
-    ///     let heap_end = ...;
-    ///     let heap_size = heap_end - heap_start;
+    ///     let heap_start = 0x8020_0000;
+    ///     let heap_size = 0x8000;
     ///     unsafe {
-    ///         ALLOCATOR.lock().init(heap_start, heap_size);
+    ///         ALLOCATOR.init(heap_start, heap_size);
     ///     }
     /// }
     /// ```
