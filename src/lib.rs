@@ -127,27 +127,54 @@ impl SlabAllocator {
     }
 }
 
-pub struct LockedAllocator(Mutex<SlabAllocator>);
+pub struct LockedAllocator(Mutex<Option<SlabAllocator>>);
 
 impl LockedAllocator {
+    /// Return empty LockedAllocator.
+    /// This method exist for to initialize after heap address available.
+    /// ```
+    /// use wild_scree_alloc::LockedAllocator;
+    ///
+    /// #[global_allocator]
+    /// static ALLOCATOR: LockedAllocator = LockedAllocator::empty();
+    ///
+    /// pub fn init_heap() {
+    ///     let heap_start = ...;
+    ///     let heap_end = ...;
+    ///     let heap_size = heap_end - heap_start;
+    ///     unsafe {
+    ///         ALLOCATOR.lock().init(heap_start, heap_size);
+    ///     }
+    /// }
+    /// ```
+    pub fn empty() -> Self {
+        LockedAllocator(Mutex::new(None))
+    }
+
     /// Create new allocator locked by mutex.
     /// # Safety
     /// `start_addr` must be aligned 4096.
     #[must_use]
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
-        LockedAllocator(Mutex::new(SlabAllocator::new(start_addr, heap_size)))
+        LockedAllocator(Mutex::new(Some(SlabAllocator::new(start_addr, heap_size))))
     }
 }
 
 unsafe impl GlobalAlloc for LockedAllocator {
     /// Just call `SlabAllocator::allocte`.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.0.lock().allocate(layout)
+        match *self.0.lock() {
+            Some(ref mut allocator) => allocator.allocate(layout),
+            None => panic!("The allocator is not initialized"),
+        }
     }
 
     /// Just call `SlabAllocator::deallocate`.
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        self.0.lock().deallocate(ptr, layout);
+        match *self.0.lock() {
+            Some(ref mut allocator) => allocator.deallocate(ptr, layout),
+            None => panic!("The allocator is not initialized"),
+        }
     }
 }
 
