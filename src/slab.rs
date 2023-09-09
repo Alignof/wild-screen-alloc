@@ -141,4 +141,12 @@ impl SlabCache {
             },
         }
     }
+
+    /// Free object according to `layout.size`.
+    pub fn deallocate(&mut self, ptr: *mut u8) {
+        let ptr = ptr as *mut FreeObject;
+        unsafe {
+            self.slab_free_list.empty.push(&mut *ptr);
+        }
+    }
 }

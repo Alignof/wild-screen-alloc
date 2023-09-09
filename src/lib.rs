@@ -84,6 +84,20 @@ impl SlabAllocator {
         }
     }
 
+    /// Deallocate(free) object.
+    pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
+        match Self::get_slab_size(&layout) {
+            slab::SlabSize::Slab64Bytes => self.slab_64_bytes.deallocate(ptr),
+            slab::SlabSize::Slab128Bytes => self.slab_64_bytes.deallocate(ptr),
+            slab::SlabSize::Slab256Bytes => self.slab_64_bytes.deallocate(ptr),
+            slab::SlabSize::Slab512Bytes => self.slab_64_bytes.deallocate(ptr),
+            slab::SlabSize::Slab1024Bytes => self.slab_64_bytes.deallocate(ptr),
+            slab::SlabSize::Slab2048Bytes => self.slab_64_bytes.deallocate(ptr),
+            slab::SlabSize::Slab4096Bytes => self.slab_64_bytes.deallocate(ptr),
+            _ => unimplemented!(),
+        }
+    }
+
     /// Convert `layout.size` to `SlabSize`
     fn get_slab_size(layout: &Layout) -> SlabSize {
         let slab_size = match layout.size() {
