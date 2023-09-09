@@ -4,8 +4,9 @@ extern crate alloc;
 
 mod slab;
 
-use alloc::alloc::Layout;
+use alloc::alloc::{GlobalAlloc, Layout};
 use slab::{SlabCache, SlabSize};
+use spin::Mutex;
 
 /// Constants.
 mod constants {
@@ -117,6 +118,27 @@ impl SlabAllocator {
             // unaligned layout
             SlabSize::Slab4096Bytes
         }
+    }
+}
+
+pub struct LockedAllocator(Mutex<SlabAllocator>);
+
+impl LockedAllocator {
+    /// Create new allocator locked by mutex.
+    pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
+        LockedAllocator(Mutex::new(SlabAllocator::new(start_addr, heap_size)))
+    }
+}
+
+unsafe impl GlobalAlloc for LockedAllocator {
+    /// Just call `SlabAllocator::allocte`.
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        self.0.lock().allocate(layout)
+    }
+
+    /// Just call `SlabAllocator::deallocate`.
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        self.0.lock().deallocate(ptr, layout)
     }
 }
 
