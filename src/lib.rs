@@ -138,6 +138,14 @@ impl LockedAllocator {
     /// #[global_allocator]
     /// static ALLOCATOR: LockedAllocator = LockedAllocator::empty();
     ///
+    /// pub fn init_heap() { /* initialize ALLOCATOR */ }
+    /// ```
+    pub const fn empty() -> Self {
+        LockedAllocator(Mutex::new(None))
+    }
+
+    /// Initialize allocator.
+    /// ```
     /// pub fn init_heap() {
     ///     let heap_start = ...;
     ///     let heap_end = ...;
@@ -147,8 +155,11 @@ impl LockedAllocator {
     ///     }
     /// }
     /// ```
-    pub fn empty() -> Self {
-        LockedAllocator(Mutex::new(None))
+    ///
+    /// # Safety
+    /// `start_addr` must be aligned 4096.
+    pub unsafe fn init(&mut self, start_addr: usize, heap_size: usize) {
+        *self.0.lock() = Some(SlabAllocator::new(start_addr, heap_size))
     }
 
     /// Create new allocator locked by mutex.
