@@ -84,6 +84,7 @@ impl SlabHead {
 
 /// Slab free lists.
 /// It has three lists to match `SlabKind`.
+/// Allocator normally use partial, but it use empty list and move one to partial when partial is empty.
 struct SlabFreeList {
     full: SlabHead,
     partial: SlabHead,
@@ -105,6 +106,10 @@ impl SlabFreeList {
 
     fn pop_from_partial(&mut self) -> Option<&'static mut FreeObject> {
         self.partial.pop()
+    }
+
+    fn pop_from_empty(&mut self) -> Option<&'static mut FreeObject> {
+        self.empty.pop()
     }
 }
 
