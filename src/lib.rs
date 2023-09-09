@@ -154,6 +154,8 @@ unsafe impl GlobalAlloc for LockedAllocator {
 #[cfg(test)]
 mod alloc_tests {
     use crate::{constants, SlabAllocator};
+    use alloc::alloc::Layout;
+    use core::mem::{align_of, size_of};
 
     const HEAP_SIZE: usize = 8 * constants::PAGE_SIZE;
 
@@ -163,13 +165,31 @@ mod alloc_tests {
     }
 
     #[test]
-    fn alloc_heap() {
+    fn create_allocator() {
         let dummy_heap = DummyHeap {
             heap_space: [0_u8; HEAP_SIZE],
         };
 
         unsafe {
-            SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+            let _ = SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+        }
+    }
+
+    #[test]
+    fn alloc_and_free_test() {
+        let dummy_heap = DummyHeap {
+            heap_space: [0_u8; HEAP_SIZE],
+        };
+
+        unsafe {
+            let mut allocator =
+                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+            let size = size_of::<usize>() * 2;
+            let layout = Layout::from_size_align(size, align_of::<usize>());
+            let addr = allocator.allocate(layout.clone().unwrap());
+            assert!(!addr.is_null());
+
+            allocator.deallocate(addr, layout.unwrap());
         }
     }
 }
