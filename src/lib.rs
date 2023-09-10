@@ -1,6 +1,7 @@
 #![no_std]
 
 extern crate alloc;
+extern crate linked_list_allocator;
 
 mod slab;
 
@@ -17,6 +18,7 @@ mod constants {
 }
 
 /// Slab allocator that provide global allocator.
+/// If allocate size over 4096 bytes, it delegate to `linked_list_allocator`.
 pub struct SlabAllocator {
     slab_64_bytes: SlabCache,
     slab_128_bytes: SlabCache,
@@ -25,6 +27,7 @@ pub struct SlabAllocator {
     slab_1024_bytes: SlabCache,
     slab_2048_bytes: SlabCache,
     slab_4096_bytes: SlabCache,
+    linked_list_allocator: linked_list_allocator::Heap,
 }
 
 impl SlabAllocator {
@@ -74,6 +77,10 @@ impl SlabAllocator {
                 slab_allocated_size,
                 SlabSize::Slab4096Bytes,
             ),
+            linked_list_allocator: linked_list_allocator::Heap::new(
+                (start_addr + 7 * slab_allocated_size) as *mut u8,
+                slab_allocated_size,
+            ),
         }
     }
 
@@ -87,7 +94,10 @@ impl SlabAllocator {
             Some(slab::SlabSize::Slab1024Bytes) => self.slab_1024_bytes.allocate(),
             Some(slab::SlabSize::Slab2048Bytes) => self.slab_2048_bytes.allocate(),
             Some(slab::SlabSize::Slab4096Bytes) => self.slab_4096_bytes.allocate(),
-            None => todo!(),
+            None => match self.linked_list_allocator.allocate_first_fit(layout) {
+                Ok(ptr) => ptr.as_ptr(),
+                Err(()) => core::ptr::null_mut(),
+            },
         }
     }
 
@@ -103,7 +113,9 @@ impl SlabAllocator {
             Some(slab::SlabSize::Slab1024Bytes) => self.slab_1024_bytes.deallocate(ptr),
             Some(slab::SlabSize::Slab2048Bytes) => self.slab_2048_bytes.deallocate(ptr),
             Some(slab::SlabSize::Slab4096Bytes) => self.slab_4096_bytes.deallocate(ptr),
-            None => todo!(),
+            None => self
+                .linked_list_allocator
+                .deallocate(core::ptr::NonNull::new(ptr).unwrap(), layout),
         }
     }
 
