@@ -232,4 +232,38 @@ mod alloc_tests {
             allocator.deallocate(addr, layout.unwrap());
         }
     }
+
+    #[test]
+    fn alloc_4096_bytes() {
+        let dummy_heap = DummyHeap {
+            heap_space: [0_u8; HEAP_SIZE],
+        };
+
+        unsafe {
+            let mut allocator =
+                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+            let size = 4096;
+            let layout = Layout::from_size_align(size, size);
+            let addr = allocator.allocate(layout.clone().unwrap());
+            assert!(!addr.is_null());
+
+            allocator.deallocate(addr, layout.unwrap());
+        }
+    }
+
+    #[test]
+    fn alloc_4097_bytes() {
+        let dummy_heap = DummyHeap {
+            heap_space: [0_u8; HEAP_SIZE],
+        };
+
+        unsafe {
+            let mut allocator =
+                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+            let size = 4097;
+            let layout = Layout::from_size_align(size, 4096);
+            let addr = allocator.allocate(layout.clone().unwrap());
+            assert!(addr.is_null());
+        }
+    }
 }
