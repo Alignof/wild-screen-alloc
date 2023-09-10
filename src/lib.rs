@@ -236,12 +236,12 @@ mod alloc_tests {
         let dummy_heap = DummyHeap {
             heap_space: [0_u8; HEAP_SIZE],
         };
+        let size = size_of::<usize>() * 2;
+        let layout = Layout::from_size_align(size, align_of::<usize>());
 
         unsafe {
             let mut allocator =
                 SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
-            let size = size_of::<usize>() * 2;
-            let layout = Layout::from_size_align(size, align_of::<usize>());
             let addr = allocator.allocate(layout.clone().unwrap());
             assert!(!addr.is_null());
 
@@ -254,12 +254,12 @@ mod alloc_tests {
         let dummy_heap = DummyHeap {
             heap_space: [0_u8; HEAP_SIZE],
         };
+        let size = 4096;
+        let layout = Layout::from_size_align(size, align_of::<usize>());
 
         unsafe {
             let mut allocator =
                 SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
-            let size = 4096;
-            let layout = Layout::from_size_align(size, size);
             let addr = allocator.allocate(layout.clone().unwrap());
             assert!(!addr.is_null());
 
@@ -272,14 +272,49 @@ mod alloc_tests {
         let dummy_heap = DummyHeap {
             heap_space: [0_u8; HEAP_SIZE],
         };
+        let size = 4097;
+        let layout = Layout::from_size_align(size, align_of::<usize>());
 
         unsafe {
             let mut allocator =
                 SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
-            let size = 4097;
-            let layout = Layout::from_size_align(size, 4096);
             let addr = allocator.allocate(layout.clone().unwrap());
             assert!(addr.is_null());
+        }
+    }
+    #[test]
+    fn alloc_4104_bytes() {
+        let dummy_heap = DummyHeap {
+            heap_space: [0_u8; HEAP_SIZE],
+        };
+        let size = 4104;
+        let layout = Layout::from_size_align(size, align_of::<usize>());
+
+        unsafe {
+            let mut allocator =
+                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+            let addr = allocator.allocate(layout.clone().unwrap());
+            assert!(!addr.is_null());
+
+            allocator.deallocate(addr, layout.unwrap());
+        }
+    }
+
+    #[test]
+    fn alloc_8096_bytes() {
+        let dummy_heap = DummyHeap {
+            heap_space: [0_u8; HEAP_SIZE],
+        };
+        let size = 8096;
+        let layout = Layout::from_size_align(size, align_of::<usize>());
+
+        unsafe {
+            let mut allocator =
+                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+            let addr = allocator.allocate(layout.clone().unwrap());
+            assert!(!addr.is_null());
+
+            allocator.deallocate(addr, layout.unwrap());
         }
     }
 }
