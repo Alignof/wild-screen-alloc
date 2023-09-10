@@ -80,13 +80,14 @@ impl SlabAllocator {
     /// Allocates a new object.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
         match Self::get_slab_size(&layout) {
-            slab::SlabSize::Slab64Bytes => self.slab_64_bytes.allocate(),
-            slab::SlabSize::Slab128Bytes => self.slab_128_bytes.allocate(),
-            slab::SlabSize::Slab256Bytes => self.slab_256_bytes.allocate(),
-            slab::SlabSize::Slab512Bytes => self.slab_512_bytes.allocate(),
-            slab::SlabSize::Slab1024Bytes => self.slab_1024_bytes.allocate(),
-            slab::SlabSize::Slab2048Bytes => self.slab_2048_bytes.allocate(),
-            slab::SlabSize::Slab4096Bytes => self.slab_4096_bytes.allocate(),
+            Some(slab::SlabSize::Slab64Bytes) => self.slab_64_bytes.allocate(),
+            Some(slab::SlabSize::Slab128Bytes) => self.slab_128_bytes.allocate(),
+            Some(slab::SlabSize::Slab256Bytes) => self.slab_256_bytes.allocate(),
+            Some(slab::SlabSize::Slab512Bytes) => self.slab_512_bytes.allocate(),
+            Some(slab::SlabSize::Slab1024Bytes) => self.slab_1024_bytes.allocate(),
+            Some(slab::SlabSize::Slab2048Bytes) => self.slab_2048_bytes.allocate(),
+            Some(slab::SlabSize::Slab4096Bytes) => self.slab_4096_bytes.allocate(),
+            None => todo!(),
         }
     }
 
@@ -95,35 +96,38 @@ impl SlabAllocator {
     /// Given pointer must be valid.
     pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
         match Self::get_slab_size(&layout) {
-            slab::SlabSize::Slab64Bytes => self.slab_64_bytes.deallocate(ptr),
-            slab::SlabSize::Slab128Bytes => self.slab_128_bytes.deallocate(ptr),
-            slab::SlabSize::Slab256Bytes => self.slab_256_bytes.deallocate(ptr),
-            slab::SlabSize::Slab512Bytes => self.slab_512_bytes.deallocate(ptr),
-            slab::SlabSize::Slab1024Bytes => self.slab_1024_bytes.deallocate(ptr),
-            slab::SlabSize::Slab2048Bytes => self.slab_2048_bytes.deallocate(ptr),
-            slab::SlabSize::Slab4096Bytes => self.slab_4096_bytes.deallocate(ptr),
+            Some(slab::SlabSize::Slab64Bytes) => self.slab_64_bytes.deallocate(ptr),
+            Some(slab::SlabSize::Slab128Bytes) => self.slab_128_bytes.deallocate(ptr),
+            Some(slab::SlabSize::Slab256Bytes) => self.slab_256_bytes.deallocate(ptr),
+            Some(slab::SlabSize::Slab512Bytes) => self.slab_512_bytes.deallocate(ptr),
+            Some(slab::SlabSize::Slab1024Bytes) => self.slab_1024_bytes.deallocate(ptr),
+            Some(slab::SlabSize::Slab2048Bytes) => self.slab_2048_bytes.deallocate(ptr),
+            Some(slab::SlabSize::Slab4096Bytes) => self.slab_4096_bytes.deallocate(ptr),
+            None => todo!(),
         }
     }
 
     /// Convert `layout.size` to `SlabSize`
-    fn get_slab_size(layout: &Layout) -> SlabSize {
+    fn get_slab_size(layout: &Layout) -> Option<SlabSize> {
         let slab_size = match layout.size() {
-            0..=64 => SlabSize::Slab64Bytes,
-            65..=128 => SlabSize::Slab128Bytes,
-            129..=256 => SlabSize::Slab256Bytes,
-            257..=512 => SlabSize::Slab512Bytes,
-            513..=1024 => SlabSize::Slab1024Bytes,
-            1025..=2048 => SlabSize::Slab2048Bytes,
-            2049..=4096 => SlabSize::Slab4096Bytes,
-            _ => panic!("unexpected size"),
+            0..=64 => Some(SlabSize::Slab64Bytes),
+            65..=128 => Some(SlabSize::Slab128Bytes),
+            129..=256 => Some(SlabSize::Slab256Bytes),
+            257..=512 => Some(SlabSize::Slab512Bytes),
+            513..=1024 => Some(SlabSize::Slab1024Bytes),
+            1025..=2048 => Some(SlabSize::Slab2048Bytes),
+            2049..=4096 => Some(SlabSize::Slab4096Bytes),
+            _ => None,
         };
 
-        if layout.align() <= slab_size as usize {
-            slab_size
-        } else {
-            // unaligned layout
-            SlabSize::Slab4096Bytes
-        }
+        slab_size.map(|size| {
+            if layout.align() <= size as usize {
+                size
+            } else {
+                // unaligned layout
+                SlabSize::Slab4096Bytes
+            }
+        })
     }
 }
 
