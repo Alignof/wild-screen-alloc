@@ -104,6 +104,9 @@ impl SlabAllocator {
     /// Deallocate(free) object.
     /// # Safety
     /// Given pointer must be valid.
+    ///
+    /// # Panics
+    /// If given ptr is null, it will panic.
     pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
         match Self::get_slab_size(&layout) {
             Some(slab::SlabSize::Slab64Bytes) => self.slab_64_bytes.deallocate(ptr),
@@ -179,7 +182,7 @@ impl WildScreenAlloc {
     /// # Safety
     /// `start_addr` must be aligned 4096.
     pub unsafe fn init(&mut self, start_addr: usize, heap_size: usize) {
-        *self.0.lock() = Some(SlabAllocator::new(start_addr, heap_size))
+        *self.0.lock() = Some(SlabAllocator::new(start_addr, heap_size));
     }
 
     /// Create new allocator locked by mutex.

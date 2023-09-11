@@ -1,4 +1,5 @@
 # wild-screen-alloc
+[![Rust](https://github.com/Alignof/wild-screen-alloc/actions/workflows/rust.yml/badge.svg)](https://github.com/Alignof/wild-screen-alloc/actions/workflows/rust.yml)  
 A hobby slab allocator for bare-metal rust.
 
 ## Usage
