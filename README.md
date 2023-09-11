@@ -13,13 +13,12 @@ static mut ALLOCATOR: WildScreenAlloc = WildScreenAlloc::empty();
 
 Before using this allocator, you need to init it:
 ```rust
-const HEAP_ADDR: usize = 0x8021_0000;
-const HEAP_SIZE: usize = 0x8000;
-
 fn init_allocator() {
     // Initialize global allocator
+    let heap_addr: usize = /* calc heap addr */
+    let heap_size: usize = /* calc heap size */
     unsafe {
-        ALLOCATOR.init(HEAP_ADDR, HEAP_SIZE);
+        ALLOCATOR.init(heap_addr, heap_size);
     }
 }
 ```
