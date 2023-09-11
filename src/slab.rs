@@ -36,9 +36,9 @@ impl FreeObject {
 /// Slab header.
 struct SlabHead {
     len: usize,
-    kind: SlabKind,
+    _kind: SlabKind,
     head: Option<&'static mut FreeObject>,
-    next: Option<&'static mut Self>,
+    _next: Option<&'static mut Self>,
 }
 
 impl SlabHead {
@@ -57,9 +57,9 @@ impl SlabHead {
     fn new_empty(kind: SlabKind) -> Self {
         SlabHead {
             len: 0,
-            kind,
+            _kind: kind,
             head: None,
-            next: None,
+            _next: None,
         }
     }
 
@@ -81,10 +81,11 @@ impl SlabHead {
 }
 
 /// Slab free lists.
-/// It has three lists to match `SlabKind`.
+/// It has three lists to match `SlabKind`.  
 /// Allocator normally use partial, but it use empty list and move one to partial when partial is empty.
+/// Note that only "empty" is used temporarily now. (TODO!)
 struct SlabFreeList {
-    full: SlabHead,
+    _full: SlabHead,
     partial: SlabHead,
     empty: SlabHead,
 }
@@ -96,7 +97,7 @@ impl SlabFreeList {
         assert!(num_of_object > 0);
 
         SlabFreeList {
-            full: SlabHead::new_empty(SlabKind::Full),
+            _full: SlabHead::new_empty(SlabKind::Full),
             partial: SlabHead::new_empty(SlabKind::Partial),
             empty: SlabHead::new(start_addr, object_size, num_of_object),
         }
@@ -116,7 +117,7 @@ impl SlabFreeList {
 /// Data unit of each slab size.
 pub struct SlabCache {
     /// Size of object. (e.g. 64byte, 128byte)
-    object_size: SlabSize,
+    _object_size: SlabSize,
     slab_free_list: SlabFreeList,
 }
 
@@ -124,7 +125,7 @@ impl SlabCache {
     /// Create new slab cache.
     pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: SlabSize) -> Self {
         SlabCache {
-            object_size,
+            _object_size: object_size,
             slab_free_list: SlabFreeList::new(start_addr, alloc_size, object_size),
         }
     }
