@@ -15,8 +15,8 @@ Before using this allocator, you need to init it:
 ```rust
 fn init_allocator() {
     // Initialize global allocator
-    let heap_addr: usize = /* calc heap addr */
-    let heap_size: usize = /* calc heap size */
+    let heap_addr: usize = /* calc heap addr */;
+    let heap_size: usize = /* calc heap size */;
     unsafe {
         ALLOCATOR.init(heap_addr, heap_size);
     }
