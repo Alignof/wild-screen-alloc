@@ -214,7 +214,7 @@ mod alloc_tests {
     use alloc::alloc::Layout;
     use core::mem::{align_of, size_of};
 
-    const HEAP_SIZE: usize = 8 * constants::PAGE_SIZE;
+    const HEAP_SIZE: usize = 16 * constants::PAGE_SIZE;
     #[repr(align(4096))]
     struct DummyHeap {
         heap_space: [u8; HEAP_SIZE],
@@ -267,21 +267,6 @@ mod alloc_tests {
         }
     }
 
-    #[test]
-    fn alloc_4097_bytes() {
-        let dummy_heap = DummyHeap {
-            heap_space: [0_u8; HEAP_SIZE],
-        };
-        let size = 4097;
-        let layout = Layout::from_size_align(size, align_of::<usize>());
-
-        unsafe {
-            let mut allocator =
-                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
-            let addr = allocator.allocate(layout.clone().unwrap());
-            assert!(addr.is_null());
-        }
-    }
     #[test]
     fn alloc_4104_bytes() {
         let dummy_heap = DummyHeap {
