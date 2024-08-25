@@ -1,5 +1,5 @@
 [package]
-name = "wild_screen_alloc"
+name = "wild-screen-alloc"
 version = "0.1.1"
 edition = "2021"
 
