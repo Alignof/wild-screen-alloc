@@ -4,18 +4,6 @@
 //!
 //! ref: [https://zenn.dev/junjunjunjun/articles/09b8e112c0219c](https://zenn.dev/junjunjunjun/articles/09b8e112c0219c)
 
-/// An enum that indicate slab object size
-#[derive(Copy, Clone)]
-pub enum SlabSize {
-    Slab64Bytes = 64,
-    Slab128Bytes = 128,
-    Slab256Bytes = 256,
-    Slab512Bytes = 512,
-    Slab1024Bytes = 1024,
-    Slab2048Bytes = 2048,
-    Slab4096Bytes = 4096,
-}
-
 /// Type of Slab
 /// * Full - all objects are allocated.
 /// * Partial - some objects are allocated.
@@ -49,7 +37,7 @@ struct SlabHead {
 
 impl SlabHead {
     /// Initialize free objects list and return new `SlabHead`.
-    pub unsafe fn new(start_addr: usize, object_size: SlabSize, num_of_object: usize) -> Self {
+    pub unsafe fn new(start_addr: usize, object_size: ObjectSize, num_of_object: usize) -> Self {
         let mut new_list = Self::new_empty(SlabKind::Empty);
         for off in (0..num_of_object).rev() {
             let new_object = (start_addr + off * object_size as usize) as *mut FreeObject;
@@ -98,7 +86,7 @@ struct SlabFreeList {
 
 impl SlabFreeList {
     /// Create new slab lists.
-    pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: SlabSize) -> Self {
+    pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: ObjectSize) -> Self {
         let num_of_object = alloc_size / object_size as usize;
         assert!(num_of_object > 0);
 
@@ -120,17 +108,29 @@ impl SlabFreeList {
     }
 }
 
+/// An enum that indicate size of objects managed by the Slab cache.
+#[derive(Copy, Clone)]
+pub enum ObjectSize {
+    Byte64 = 64,
+    Byte128 = 128,
+    Byte256 = 256,
+    Byte512 = 512,
+    Byte1024 = 1024,
+    Byte2048 = 2048,
+    Byte4096 = 4096, // 4 kB = PAGE_SIZE
+}
+
 /// Cache that contains slab lists.
 pub struct Cache {
     /// Size of object. (e.g. 64byte, 128byte)
-    _object_size: SlabSize,
+    _object_size: ObjectSize,
     /// slab's linked list
     slab_free_list: SlabFreeList,
 }
 
 impl Cache {
     /// Create new slab cache.
-    pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: SlabSize) -> Self {
+    pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: ObjectSize) -> Self {
         Cache {
             _object_size: object_size,
             slab_free_list: SlabFreeList::new(start_addr, alloc_size, object_size),

@@ -6,7 +6,6 @@ extern crate linked_list_allocator;
 mod slab;
 
 use alloc::alloc::{GlobalAlloc, Layout};
-use slab::SlabSize;
 use spin::Mutex;
 
 /// Constants.
@@ -46,36 +45,40 @@ impl SlabAllocator {
 
         let slab_allocated_size = heap_size / constants::NUM_OF_SLABS;
         SlabAllocator {
-            slab_64_bytes: slab::Cache::new(start_addr, slab_allocated_size, SlabSize::Slab64Bytes),
+            slab_64_bytes: slab::Cache::new(
+                start_addr,
+                slab_allocated_size,
+                slab::ObjectSize::Byte64,
+            ),
             slab_128_bytes: slab::Cache::new(
                 start_addr + slab_allocated_size,
                 slab_allocated_size,
-                SlabSize::Slab128Bytes,
+                slab::ObjectSize::Byte128,
             ),
             slab_256_bytes: slab::Cache::new(
                 start_addr + 2 * slab_allocated_size,
                 slab_allocated_size,
-                SlabSize::Slab256Bytes,
+                slab::ObjectSize::Byte256,
             ),
             slab_512_bytes: slab::Cache::new(
                 start_addr + 3 * slab_allocated_size,
                 slab_allocated_size,
-                SlabSize::Slab512Bytes,
+                slab::ObjectSize::Byte512,
             ),
             slab_1024_bytes: slab::Cache::new(
                 start_addr + 4 * slab_allocated_size,
                 slab_allocated_size,
-                SlabSize::Slab1024Bytes,
+                slab::ObjectSize::Byte1024,
             ),
             slab_2048_bytes: slab::Cache::new(
                 start_addr + 5 * slab_allocated_size,
                 slab_allocated_size,
-                SlabSize::Slab2048Bytes,
+                slab::ObjectSize::Byte2048,
             ),
             slab_4096_bytes: slab::Cache::new(
                 start_addr + 6 * slab_allocated_size,
                 slab_allocated_size,
-                SlabSize::Slab4096Bytes,
+                slab::ObjectSize::Byte4096,
             ),
             linked_list_allocator: linked_list_allocator::Heap::new(
                 (start_addr + 7 * slab_allocated_size) as *mut u8,
@@ -87,13 +90,13 @@ impl SlabAllocator {
     /// Allocates a new object.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
         match Self::get_slab_size(&layout) {
-            Some(slab::SlabSize::Slab64Bytes) => self.slab_64_bytes.allocate(),
-            Some(slab::SlabSize::Slab128Bytes) => self.slab_128_bytes.allocate(),
-            Some(slab::SlabSize::Slab256Bytes) => self.slab_256_bytes.allocate(),
-            Some(slab::SlabSize::Slab512Bytes) => self.slab_512_bytes.allocate(),
-            Some(slab::SlabSize::Slab1024Bytes) => self.slab_1024_bytes.allocate(),
-            Some(slab::SlabSize::Slab2048Bytes) => self.slab_2048_bytes.allocate(),
-            Some(slab::SlabSize::Slab4096Bytes) => self.slab_4096_bytes.allocate(),
+            Some(slab::ObjectSize::Byte64) => self.slab_64_bytes.allocate(),
+            Some(slab::ObjectSize::Byte128) => self.slab_128_bytes.allocate(),
+            Some(slab::ObjectSize::Byte256) => self.slab_256_bytes.allocate(),
+            Some(slab::ObjectSize::Byte512) => self.slab_512_bytes.allocate(),
+            Some(slab::ObjectSize::Byte1024) => self.slab_1024_bytes.allocate(),
+            Some(slab::ObjectSize::Byte2048) => self.slab_2048_bytes.allocate(),
+            Some(slab::ObjectSize::Byte4096) => self.slab_4096_bytes.allocate(),
             None => match self.linked_list_allocator.allocate_first_fit(layout) {
                 Ok(ptr) => ptr.as_ptr(),
                 Err(()) => core::ptr::null_mut(),
@@ -109,29 +112,29 @@ impl SlabAllocator {
     /// If given ptr is null, it will panic.
     pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
         match Self::get_slab_size(&layout) {
-            Some(slab::SlabSize::Slab64Bytes) => self.slab_64_bytes.deallocate(ptr),
-            Some(slab::SlabSize::Slab128Bytes) => self.slab_128_bytes.deallocate(ptr),
-            Some(slab::SlabSize::Slab256Bytes) => self.slab_256_bytes.deallocate(ptr),
-            Some(slab::SlabSize::Slab512Bytes) => self.slab_512_bytes.deallocate(ptr),
-            Some(slab::SlabSize::Slab1024Bytes) => self.slab_1024_bytes.deallocate(ptr),
-            Some(slab::SlabSize::Slab2048Bytes) => self.slab_2048_bytes.deallocate(ptr),
-            Some(slab::SlabSize::Slab4096Bytes) => self.slab_4096_bytes.deallocate(ptr),
+            Some(slab::ObjectSize::Byte64) => self.slab_64_bytes.deallocate(ptr),
+            Some(slab::ObjectSize::Byte128) => self.slab_128_bytes.deallocate(ptr),
+            Some(slab::ObjectSize::Byte256) => self.slab_256_bytes.deallocate(ptr),
+            Some(slab::ObjectSize::Byte512) => self.slab_512_bytes.deallocate(ptr),
+            Some(slab::ObjectSize::Byte1024) => self.slab_1024_bytes.deallocate(ptr),
+            Some(slab::ObjectSize::Byte2048) => self.slab_2048_bytes.deallocate(ptr),
+            Some(slab::ObjectSize::Byte4096) => self.slab_4096_bytes.deallocate(ptr),
             None => self
                 .linked_list_allocator
                 .deallocate(core::ptr::NonNull::new(ptr).unwrap(), layout),
         }
     }
 
-    /// Convert `layout.size` to `SlabSize`
-    fn get_slab_size(layout: &Layout) -> Option<SlabSize> {
+    /// Convert `layout.size` to `slab::ObjectSize`
+    fn get_slab_size(layout: &Layout) -> Option<slab::ObjectSize> {
         let slab_size = match layout.size() {
-            0..=64 => Some(SlabSize::Slab64Bytes),
-            65..=128 => Some(SlabSize::Slab128Bytes),
-            129..=256 => Some(SlabSize::Slab256Bytes),
-            257..=512 => Some(SlabSize::Slab512Bytes),
-            513..=1024 => Some(SlabSize::Slab1024Bytes),
-            1025..=2048 => Some(SlabSize::Slab2048Bytes),
-            2049..=4096 => Some(SlabSize::Slab4096Bytes),
+            0..=64 => Some(slab::ObjectSize::Byte64),
+            65..=128 => Some(slab::ObjectSize::Byte128),
+            129..=256 => Some(slab::ObjectSize::Byte256),
+            257..=512 => Some(slab::ObjectSize::Byte512),
+            513..=1024 => Some(slab::ObjectSize::Byte1024),
+            1025..=2048 => Some(slab::ObjectSize::Byte2048),
+            2049..=4096 => Some(slab::ObjectSize::Byte4096),
             _ => None,
         };
 
@@ -140,7 +143,7 @@ impl SlabAllocator {
                 size
             } else {
                 // unaligned layout
-                SlabSize::Slab4096Bytes
+                slab::ObjectSize::Byte4096
             }
         })
     }
