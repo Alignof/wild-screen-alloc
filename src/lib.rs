@@ -6,12 +6,12 @@ extern crate linked_list_allocator;
 mod slab;
 
 use alloc::alloc::{GlobalAlloc, Layout};
-use slab::{SlabCache, SlabSize};
+use slab::SlabSize;
 use spin::Mutex;
 
 /// Constants.
 mod constants {
-    /// Number of slab allocator size.
+    /// Number of slab.
     pub const NUM_OF_SLABS: usize = 8;
     /// Page size.
     pub const PAGE_SIZE: usize = 4096;
@@ -20,13 +20,13 @@ mod constants {
 /// Slab allocator that provide global allocator.
 /// If allocate size over 4096 bytes, it delegate to `linked_list_allocator`.
 pub struct SlabAllocator {
-    slab_64_bytes: SlabCache,
-    slab_128_bytes: SlabCache,
-    slab_256_bytes: SlabCache,
-    slab_512_bytes: SlabCache,
-    slab_1024_bytes: SlabCache,
-    slab_2048_bytes: SlabCache,
-    slab_4096_bytes: SlabCache,
+    slab_64_bytes: slab::Cache,
+    slab_128_bytes: slab::Cache,
+    slab_256_bytes: slab::Cache,
+    slab_512_bytes: slab::Cache,
+    slab_1024_bytes: slab::Cache,
+    slab_2048_bytes: slab::Cache,
+    slab_4096_bytes: slab::Cache,
     linked_list_allocator: linked_list_allocator::Heap,
 }
 
@@ -46,33 +46,33 @@ impl SlabAllocator {
 
         let slab_allocated_size = heap_size / constants::NUM_OF_SLABS;
         SlabAllocator {
-            slab_64_bytes: SlabCache::new(start_addr, slab_allocated_size, SlabSize::Slab64Bytes),
-            slab_128_bytes: SlabCache::new(
+            slab_64_bytes: slab::Cache::new(start_addr, slab_allocated_size, SlabSize::Slab64Bytes),
+            slab_128_bytes: slab::Cache::new(
                 start_addr + slab_allocated_size,
                 slab_allocated_size,
                 SlabSize::Slab128Bytes,
             ),
-            slab_256_bytes: SlabCache::new(
+            slab_256_bytes: slab::Cache::new(
                 start_addr + 2 * slab_allocated_size,
                 slab_allocated_size,
                 SlabSize::Slab256Bytes,
             ),
-            slab_512_bytes: SlabCache::new(
+            slab_512_bytes: slab::Cache::new(
                 start_addr + 3 * slab_allocated_size,
                 slab_allocated_size,
                 SlabSize::Slab512Bytes,
             ),
-            slab_1024_bytes: SlabCache::new(
+            slab_1024_bytes: slab::Cache::new(
                 start_addr + 4 * slab_allocated_size,
                 slab_allocated_size,
                 SlabSize::Slab1024Bytes,
             ),
-            slab_2048_bytes: SlabCache::new(
+            slab_2048_bytes: slab::Cache::new(
                 start_addr + 5 * slab_allocated_size,
                 slab_allocated_size,
                 SlabSize::Slab2048Bytes,
             ),
-            slab_4096_bytes: SlabCache::new(
+            slab_4096_bytes: slab::Cache::new(
                 start_addr + 6 * slab_allocated_size,
                 slab_allocated_size,
                 SlabSize::Slab4096Bytes,

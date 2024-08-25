@@ -1,3 +1,9 @@
+//! Implementation of slab allocator.
+//!
+//! It management heap memory over page size.
+//!
+//! ref: [https://zenn.dev/junjunjunjun/articles/09b8e112c0219c](https://zenn.dev/junjunjunjun/articles/09b8e112c0219c)
+
 /// An enum that indicate slab object size
 #[derive(Copy, Clone)]
 pub enum SlabSize {
@@ -114,17 +120,18 @@ impl SlabFreeList {
     }
 }
 
-/// Data unit of each slab size.
-pub struct SlabCache {
+/// Cache that contains slab lists.
+pub struct Cache {
     /// Size of object. (e.g. 64byte, 128byte)
     _object_size: SlabSize,
+    /// slab's linked list
     slab_free_list: SlabFreeList,
 }
 
-impl SlabCache {
+impl Cache {
     /// Create new slab cache.
     pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: SlabSize) -> Self {
-        SlabCache {
+        Cache {
             _object_size: object_size,
             slab_free_list: SlabFreeList::new(start_addr, alloc_size, object_size),
         }
