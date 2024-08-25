@@ -4,6 +4,18 @@
 //!
 //! ref: [https://zenn.dev/junjunjunjun/articles/09b8e112c0219c](https://zenn.dev/junjunjunjun/articles/09b8e112c0219c)
 
+/// An enum that indicate size of objects managed by the Slab cache.
+#[derive(Copy, Clone)]
+pub enum ObjectSize {
+    Byte64 = 64,
+    Byte128 = 128,
+    Byte256 = 256,
+    Byte512 = 512,
+    Byte1024 = 1024,
+    Byte2048 = 2048,
+    Byte4096 = 4096, // 4 kB = PAGE_SIZE
+}
+
 /// Type of Slab
 /// * Full - all objects are allocated.
 /// * Partial - some objects are allocated.
@@ -74,23 +86,24 @@ impl SlabHead {
     }
 }
 
-/// Slab free lists.
+/// Linked lists for free slab management.
+///
 /// It has three lists to match `SlabKind`.  
 /// Allocator normally use partial, but it use empty list and move one to partial when partial is empty.
 /// Note that only "empty" is used temporarily now. (TODO!)
-struct SlabFreeList {
+struct SlabLists {
     _full: SlabHead,
     partial: SlabHead,
     empty: SlabHead,
 }
 
-impl SlabFreeList {
+impl SlabLists {
     /// Create new slab lists.
     pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: ObjectSize) -> Self {
         let num_of_object = alloc_size / object_size as usize;
         assert!(num_of_object > 0);
 
-        SlabFreeList {
+        SlabLists {
             _full: SlabHead::new_empty(SlabKind::Full),
             partial: SlabHead::new_empty(SlabKind::Partial),
             empty: SlabHead::new(start_addr, object_size, num_of_object),
@@ -108,24 +121,12 @@ impl SlabFreeList {
     }
 }
 
-/// An enum that indicate size of objects managed by the Slab cache.
-#[derive(Copy, Clone)]
-pub enum ObjectSize {
-    Byte64 = 64,
-    Byte128 = 128,
-    Byte256 = 256,
-    Byte512 = 512,
-    Byte1024 = 1024,
-    Byte2048 = 2048,
-    Byte4096 = 4096, // 4 kB = PAGE_SIZE
-}
-
 /// Cache that contains slab lists.
 pub struct Cache {
     /// Size of object. (e.g. 64byte, 128byte)
     _object_size: ObjectSize,
     /// slab's linked list
-    slab_free_list: SlabFreeList,
+    slab_lists: SlabLists,
 }
 
 impl Cache {
@@ -133,15 +134,15 @@ impl Cache {
     pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: ObjectSize) -> Self {
         Cache {
             _object_size: object_size,
-            slab_free_list: SlabFreeList::new(start_addr, alloc_size, object_size),
+            slab_lists: SlabLists::new(start_addr, alloc_size, object_size),
         }
     }
 
     /// Return object address according to `layout.size`.
     pub fn allocate(&mut self) -> *mut u8 {
-        match self.slab_free_list.pop_from_partial() {
+        match self.slab_lists.pop_from_partial() {
             Some(object) => object.addr() as *mut u8,
-            None => match self.slab_free_list.pop_from_empty() {
+            None => match self.slab_lists.pop_from_empty() {
                 Some(object) => object.addr() as *mut u8,
                 None => core::ptr::null_mut(),
             },
@@ -152,7 +153,7 @@ impl Cache {
     pub fn deallocate(&mut self, ptr: *mut u8) {
         let ptr = ptr.cast::<FreeObject>();
         unsafe {
-            self.slab_free_list.empty.push(&mut *ptr);
+            self.slab_lists.empty.push(&mut *ptr);
         }
     }
 }
