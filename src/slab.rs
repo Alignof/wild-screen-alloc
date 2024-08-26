@@ -131,10 +131,10 @@ pub struct Cache {
 
 impl Cache {
     /// Create new slab cache.
-    pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: ObjectSize) -> Self {
+    pub unsafe fn new(object_size: ObjectSize) -> Self {
         Cache {
             _object_size: object_size,
-            slab_lists: SlabLists::new(start_addr, alloc_size, object_size),
+            slab_lists: SlabLists::new(object_size),
         }
     }
 
