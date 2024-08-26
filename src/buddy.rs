@@ -24,8 +24,20 @@ struct MemoryBlockHeader {
     size: BlockSize,
     /// Next empty node of linked list.
     next: Option<&'static mut MemoryBlockHeader>,
-    /// Buddy address.
-    buddy_addr: &'static MemoryBlockHeader,
+    /// Parent address
+    /// ```ignore
+    /// match self.parent {
+    ///     Some(addr) => {
+    ///         if addr == &self {
+    ///             // rhs
+    ///         } else {
+    ///             // lhs
+    ///         }
+    ///     }
+    ///     None => // root
+    /// }
+    /// ```
+    parent: Option<&'static mut MemoryBlockHeader>,
 }
 
 pub struct BuddySystem {
