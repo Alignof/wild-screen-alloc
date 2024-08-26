@@ -142,6 +142,27 @@ impl BuddySystem {
         new_lists
     }
 
+    /// Allocates a new memory block.
+    pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
+        let corresponding_block_size = Self::get_memory_block_size(&layout);
+        let corresponding_list = match corresponding_block_size {
+            BlockSize::Byte4K => self.block_4k_bytes,
+            BlockSize::Byte8K => self.block_8k_bytes,
+            BlockSize::Byte16K => self.block_16k_bytes,
+            BlockSize::Byte32K => self.block_32k_bytes,
+            BlockSize::Byte64K => self.block_64k_bytes,
+            BlockSize::Byte128K => self.block_128k_bytes,
+            BlockSize::Byte256K => self.block_256k_bytes,
+            BlockSize::Byte512K => self.block_512k_bytes,
+            BlockSize::Byte1024K => self.block_1024k_bytes,
+        };
+
+        match corresponding_list.pop() {
+            Some(ptr) => ptr as *mut MemoryBlockHeader as *mut u8,
+            None => self.split_request(corrensponding_block_size),
+        }
+    }
+
     fn get_memory_block_size(layout: &Layout) -> BlockSize {
         match layout.size() {
             0x1000..0x2000 => BlockSize::Byte4K,
