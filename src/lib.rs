@@ -26,7 +26,6 @@ pub struct SlabAllocator {
     slab_1024_bytes: slab::Cache,
     slab_2048_bytes: slab::Cache,
     slab_4096_bytes: slab::Cache,
-    linked_list_allocator: linked_list_allocator::Heap,
 }
 
 impl SlabAllocator {
@@ -37,70 +36,28 @@ impl SlabAllocator {
     /// # Panics
     /// If `start_addr` isn't aligned 4096, this function will panic.
     #[must_use]
-    pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
-        assert!(
-            start_addr % constants::PAGE_SIZE == 0,
-            "Start address should be page aligned"
-        );
-
-        let slab_allocated_size = heap_size / constants::NUM_OF_SLABS;
+    pub unsafe fn new(_start_addr: usize, _heap_size: usize) -> Self {
         SlabAllocator {
-            slab_64_bytes: slab::Cache::new(
-                start_addr,
-                slab_allocated_size,
-                slab::ObjectSize::Byte64,
-            ),
-            slab_128_bytes: slab::Cache::new(
-                start_addr + slab_allocated_size,
-                slab_allocated_size,
-                slab::ObjectSize::Byte128,
-            ),
-            slab_256_bytes: slab::Cache::new(
-                start_addr + 2 * slab_allocated_size,
-                slab_allocated_size,
-                slab::ObjectSize::Byte256,
-            ),
-            slab_512_bytes: slab::Cache::new(
-                start_addr + 3 * slab_allocated_size,
-                slab_allocated_size,
-                slab::ObjectSize::Byte512,
-            ),
-            slab_1024_bytes: slab::Cache::new(
-                start_addr + 4 * slab_allocated_size,
-                slab_allocated_size,
-                slab::ObjectSize::Byte1024,
-            ),
-            slab_2048_bytes: slab::Cache::new(
-                start_addr + 5 * slab_allocated_size,
-                slab_allocated_size,
-                slab::ObjectSize::Byte2048,
-            ),
-            slab_4096_bytes: slab::Cache::new(
-                start_addr + 6 * slab_allocated_size,
-                slab_allocated_size,
-                slab::ObjectSize::Byte4096,
-            ),
-            linked_list_allocator: linked_list_allocator::Heap::new(
-                (start_addr + 7 * slab_allocated_size) as *mut u8,
-                slab_allocated_size,
-            ),
+            slab_64_bytes: slab::Cache::new(slab::ObjectSize::Byte64),
+            slab_128_bytes: slab::Cache::new(slab::ObjectSize::Byte128),
+            slab_256_bytes: slab::Cache::new(slab::ObjectSize::Byte256),
+            slab_512_bytes: slab::Cache::new(slab::ObjectSize::Byte512),
+            slab_1024_bytes: slab::Cache::new(slab::ObjectSize::Byte1024),
+            slab_2048_bytes: slab::Cache::new(slab::ObjectSize::Byte2048),
+            slab_4096_bytes: slab::Cache::new(slab::ObjectSize::Byte4096),
         }
     }
 
     /// Allocates a new object.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
         match Self::get_slab_size(&layout) {
-            Some(slab::ObjectSize::Byte64) => self.slab_64_bytes.allocate(),
-            Some(slab::ObjectSize::Byte128) => self.slab_128_bytes.allocate(),
-            Some(slab::ObjectSize::Byte256) => self.slab_256_bytes.allocate(),
-            Some(slab::ObjectSize::Byte512) => self.slab_512_bytes.allocate(),
-            Some(slab::ObjectSize::Byte1024) => self.slab_1024_bytes.allocate(),
-            Some(slab::ObjectSize::Byte2048) => self.slab_2048_bytes.allocate(),
-            Some(slab::ObjectSize::Byte4096) => self.slab_4096_bytes.allocate(),
-            None => match self.linked_list_allocator.allocate_first_fit(layout) {
-                Ok(ptr) => ptr.as_ptr(),
-                Err(()) => core::ptr::null_mut(),
-            },
+            slab::ObjectSize::Byte64 => self.slab_64_bytes.allocate(),
+            slab::ObjectSize::Byte128 => self.slab_128_bytes.allocate(),
+            slab::ObjectSize::Byte256 => self.slab_256_bytes.allocate(),
+            slab::ObjectSize::Byte512 => self.slab_512_bytes.allocate(),
+            slab::ObjectSize::Byte1024 => self.slab_1024_bytes.allocate(),
+            slab::ObjectSize::Byte2048 => self.slab_2048_bytes.allocate(),
+            slab::ObjectSize::Byte4096 => self.slab_4096_bytes.allocate(),
         }
     }
 
@@ -112,40 +69,29 @@ impl SlabAllocator {
     /// If given ptr is null, it will panic.
     pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
         match Self::get_slab_size(&layout) {
-            Some(slab::ObjectSize::Byte64) => self.slab_64_bytes.deallocate(ptr),
-            Some(slab::ObjectSize::Byte128) => self.slab_128_bytes.deallocate(ptr),
-            Some(slab::ObjectSize::Byte256) => self.slab_256_bytes.deallocate(ptr),
-            Some(slab::ObjectSize::Byte512) => self.slab_512_bytes.deallocate(ptr),
-            Some(slab::ObjectSize::Byte1024) => self.slab_1024_bytes.deallocate(ptr),
-            Some(slab::ObjectSize::Byte2048) => self.slab_2048_bytes.deallocate(ptr),
-            Some(slab::ObjectSize::Byte4096) => self.slab_4096_bytes.deallocate(ptr),
-            None => self
-                .linked_list_allocator
-                .deallocate(core::ptr::NonNull::new(ptr).unwrap(), layout),
+            slab::ObjectSize::Byte64 => self.slab_64_bytes.deallocate(ptr),
+            slab::ObjectSize::Byte128 => self.slab_128_bytes.deallocate(ptr),
+            slab::ObjectSize::Byte256 => self.slab_256_bytes.deallocate(ptr),
+            slab::ObjectSize::Byte512 => self.slab_512_bytes.deallocate(ptr),
+            slab::ObjectSize::Byte1024 => self.slab_1024_bytes.deallocate(ptr),
+            slab::ObjectSize::Byte2048 => self.slab_2048_bytes.deallocate(ptr),
+            slab::ObjectSize::Byte4096 => self.slab_4096_bytes.deallocate(ptr),
         }
     }
 
     /// Convert `layout.size` to `slab::ObjectSize`
-    fn get_slab_size(layout: &Layout) -> Option<slab::ObjectSize> {
-        let slab_size = match layout.size() {
-            0..=64 => Some(slab::ObjectSize::Byte64),
-            65..=128 => Some(slab::ObjectSize::Byte128),
-            129..=256 => Some(slab::ObjectSize::Byte256),
-            257..=512 => Some(slab::ObjectSize::Byte512),
-            513..=1024 => Some(slab::ObjectSize::Byte1024),
-            1025..=2048 => Some(slab::ObjectSize::Byte2048),
-            2049..=4096 => Some(slab::ObjectSize::Byte4096),
-            _ => None,
-        };
-
-        slab_size.map(|size| {
-            if layout.align() <= size as usize {
-                size
-            } else {
-                // unaligned layout
-                slab::ObjectSize::Byte4096
-            }
-        })
+    fn get_slab_size(layout: &Layout) -> slab::ObjectSize {
+        assert!(layout.size() < 4096);
+        match layout.size() {
+            0..=64 => slab::ObjectSize::Byte64,
+            65..=128 => slab::ObjectSize::Byte128,
+            129..=256 => slab::ObjectSize::Byte256,
+            257..=512 => slab::ObjectSize::Byte512,
+            513..=1024 => slab::ObjectSize::Byte1024,
+            1025..=2048 => slab::ObjectSize::Byte2048,
+            2049..4096 => slab::ObjectSize::Byte4096,
+            _ => unreachable!(),
+        }
     }
 }
 
