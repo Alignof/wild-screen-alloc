@@ -60,7 +60,7 @@ struct MemoryBlockHeader {
     /// Memory block size.
     size: BlockSize,
     /// Next empty node of linked list.
-    next: Option<&'static mut MemoryBlockHeader>,
+    next: Option<&'static mut Self>,
     /// Parent address
     kind: MemoryBlockType,
 }
@@ -72,6 +72,18 @@ impl MemoryBlockHeader {
             size,
             next: None,
             kind: MemoryBlockType::Orphan,
+        }
+    }
+
+    pub fn get_buddy(&mut self) -> &'static mut Self {
+        match self.kind {
+            MemoryBlockType::FirstChild => unsafe {
+                &mut *(self as *mut Self).byte_add(size_of::<Self>())
+            },
+            MemoryBlockType::SecondChild => unsafe {
+                &mut *(self as *mut Self).byte_sub(size_of::<Self>())
+            },
+            MemoryBlockType::Orphan => panic!("Orphan does not have buddy"),
         }
     }
 }
