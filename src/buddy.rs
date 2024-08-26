@@ -40,6 +40,20 @@ impl BlockSize {
         let block_size = self.clone() as usize;
         self.header_size() + block_size
     }
+
+    pub fn bigger(self) -> Self {
+        match self {
+            Self::Byte4K => BlockSize::Byte8K,
+            Self::Byte8K => BlockSize::Byte16K,
+            Self::Byte16K => BlockSize::Byte32K,
+            Self::Byte32K => BlockSize::Byte64K,
+            Self::Byte64K => BlockSize::Byte128K,
+            Self::Byte128K => BlockSize::Byte256K,
+            Self::Byte256K => BlockSize::Byte512K,
+            Self::Byte512K => BlockSize::Byte1024K,
+            Self::Byte1024K => panic!("Byte1024K is max size block"),
+        }
+    }
 }
 
 enum MemoryBlockType {
