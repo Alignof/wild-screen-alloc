@@ -3,8 +3,31 @@
 use super::{ObjectSize, Slab, SlabKind};
 
 /// Node of `List`
+///
+/// It's mapped as page and contains `Slab`.
+///
+/// # Memory layout
+/// ```ignore
+/// ┌──────────────────────────────────────────────────────────────────────────┐
+/// │                                                                          │
+/// │                           size_of::<Node>()                              │
+/// │   ◄──────────────────────────────────────────────────────────────────►   │
+/// │                                    size_of::<Slab>()                     │
+/// │  0              ◄────────────────────────────────────────────────────►   │
+/// │  ┌─────────────┬──────────────────────────────────────────────────────┐  │
+/// │  │  Node.next  │                    Node.slab                        ─┼──┘
+/// │  ├─────────────┼─────────────┬─────────────┬────────────┬─────────────┤   
+/// └──►  free_obj   │  free_obj   │  free_obj   │  free_obj  │  free_obj   │   
+///    ├─────────────┼─────────────┼─────────────┼────────────┼─────────────┤   
+///    │  free_obj   │  free_obj   │  free_obj   │  free_obj  │  free_obj   │   
+///    └─────────────┴─────────────┴─────────────┴────────────┴─────────────┘   
+///                                                                       4096
+/// ```
+#[repr(C)]
 struct Node {
+    /// Next node pointer
     next: Option<&'static mut Self>,
+    /// Slab
     slab: Slab,
 }
 
@@ -24,6 +47,7 @@ impl Node {
         }
     }
 
+    /// Return `SlabKind`
     fn kind(&self) -> &SlabKind {
         &self.slab.kind
     }
