@@ -17,87 +17,8 @@ mod constants {
     pub const PAGE_SIZE: usize = 4096;
 }
 
-/// Slab allocator that provide global allocator.
-/// If allocate size over 4096 bytes, it delegate to `linked_list_allocator`.
-pub struct SlabAllocator {
-    slab_64_bytes: slab::Cache,
-    slab_128_bytes: slab::Cache,
-    slab_256_bytes: slab::Cache,
-    slab_512_bytes: slab::Cache,
-    slab_1024_bytes: slab::Cache,
-    slab_2048_bytes: slab::Cache,
-    slab_4096_bytes: slab::Cache,
-}
-
-impl SlabAllocator {
-    /// Return new `SlabAllocator`.
-    /// # Safety
-    /// `start_addr` must be aligned 4096.
-    ///
-    /// # Panics
-    /// If `start_addr` isn't aligned 4096, this function will panic.
-    #[must_use]
-    pub unsafe fn new(_start_addr: usize, _heap_size: usize) -> Self {
-        SlabAllocator {
-            slab_64_bytes: slab::Cache::new(slab::ObjectSize::Byte64),
-            slab_128_bytes: slab::Cache::new(slab::ObjectSize::Byte128),
-            slab_256_bytes: slab::Cache::new(slab::ObjectSize::Byte256),
-            slab_512_bytes: slab::Cache::new(slab::ObjectSize::Byte512),
-            slab_1024_bytes: slab::Cache::new(slab::ObjectSize::Byte1024),
-            slab_2048_bytes: slab::Cache::new(slab::ObjectSize::Byte2048),
-            slab_4096_bytes: slab::Cache::new(slab::ObjectSize::Byte4096),
-        }
-    }
-
-    /// Allocates a new object.
-    pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
-        match Self::get_slab_size(&layout) {
-            slab::ObjectSize::Byte64 => self.slab_64_bytes.allocate(),
-            slab::ObjectSize::Byte128 => self.slab_128_bytes.allocate(),
-            slab::ObjectSize::Byte256 => self.slab_256_bytes.allocate(),
-            slab::ObjectSize::Byte512 => self.slab_512_bytes.allocate(),
-            slab::ObjectSize::Byte1024 => self.slab_1024_bytes.allocate(),
-            slab::ObjectSize::Byte2048 => self.slab_2048_bytes.allocate(),
-            slab::ObjectSize::Byte4096 => self.slab_4096_bytes.allocate(),
-        }
-    }
-
-    /// Deallocate(free) object.
-    /// # Safety
-    /// Given pointer must be valid.
-    ///
-    /// # Panics
-    /// If given ptr is null, it will panic.
-    pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
-        match Self::get_slab_size(&layout) {
-            slab::ObjectSize::Byte64 => self.slab_64_bytes.deallocate(ptr),
-            slab::ObjectSize::Byte128 => self.slab_128_bytes.deallocate(ptr),
-            slab::ObjectSize::Byte256 => self.slab_256_bytes.deallocate(ptr),
-            slab::ObjectSize::Byte512 => self.slab_512_bytes.deallocate(ptr),
-            slab::ObjectSize::Byte1024 => self.slab_1024_bytes.deallocate(ptr),
-            slab::ObjectSize::Byte2048 => self.slab_2048_bytes.deallocate(ptr),
-            slab::ObjectSize::Byte4096 => self.slab_4096_bytes.deallocate(ptr),
-        }
-    }
-
-    /// Convert `layout.size` to `slab::ObjectSize`
-    fn get_slab_size(layout: &Layout) -> slab::ObjectSize {
-        assert!(layout.size() < 4096);
-        match layout.size() {
-            0..=64 => slab::ObjectSize::Byte64,
-            65..=128 => slab::ObjectSize::Byte128,
-            129..=256 => slab::ObjectSize::Byte256,
-            257..=512 => slab::ObjectSize::Byte512,
-            513..=1024 => slab::ObjectSize::Byte1024,
-            1025..=2048 => slab::ObjectSize::Byte2048,
-            2049..4096 => slab::ObjectSize::Byte4096,
-            _ => unreachable!(),
-        }
-    }
-}
-
 pub struct WildScreenAlloc {
-    slab: Mutex<OnceCell<SlabAllocator>>,
+    slab: Mutex<OnceCell<slab::SlabAllocator>>,
 }
 
 impl WildScreenAlloc {
@@ -138,7 +59,7 @@ impl WildScreenAlloc {
     pub unsafe fn init(&mut self, start_addr: usize, heap_size: usize) {
         self.slab
             .lock()
-            .get_or_init(|| SlabAllocator::new(start_addr, heap_size));
+            .get_or_init(|| slab::SlabAllocator::new(start_addr, heap_size));
     }
 
     /// Create new allocator locked by mutex.
@@ -147,7 +68,7 @@ impl WildScreenAlloc {
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         let new_slab = OnceCell::new();
         new_slab
-            .set(SlabAllocator::new(start_addr, heap_size))
+            .set(slab::SlabAllocator::new(start_addr, heap_size))
             .unwrap_or_else(|_| panic!("SlabAllocator initialization failed"));
 
         WildScreenAlloc {
