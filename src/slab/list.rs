@@ -9,10 +9,18 @@ struct Node {
 }
 
 impl Node {
-    fn new(obj_size: ObjectSize) -> Self {
-        Node {
-            next: None,
-            slab: unsafe { Slab::new(obj_size) },
+    /// Map `Node` structure to allocated memory block.
+    fn new(obj_size: ObjectSize) -> &'static mut Self {
+        // TODO: allocate it by buddy system.
+        let dummy_page_ptr = [0u8; 4096].as_mut_ptr() as *mut Node;
+
+        unsafe {
+            *dummy_page_ptr = Node {
+                next: None,
+                slab: Slab::new(obj_size, dummy_page_ptr as usize + size_of::<Node>()),
+            };
+
+            &mut *dummy_page_ptr
         }
     }
 
