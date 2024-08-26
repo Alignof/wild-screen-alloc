@@ -41,6 +41,15 @@ impl BlockSize {
     }
 }
 
+enum MemoryBlockType {
+    /// First half of parent.
+    FirstChild,
+    /// Second half of parent.
+    SecondChild,
+    /// No parent. (root)
+    Orphan,
+}
+
 /// Header of memory block
 struct MemoryBlockHeader {
     /// Is memory block used?
@@ -62,7 +71,7 @@ struct MemoryBlockHeader {
     ///     None => // root
     /// }
     /// ```
-    parent: Option<&'static mut MemoryBlockHeader>,
+    kind: MemoryBlockType,
 }
 
 pub struct BuddySystem {
