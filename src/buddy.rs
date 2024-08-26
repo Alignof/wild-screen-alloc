@@ -6,7 +6,6 @@ mod list;
 
 use super::constants;
 use alloc::alloc::Layout;
-use core::ops::Range;
 
 /// Block size that is managed by buddy system.
 #[derive(Copy, Clone)]
@@ -45,8 +44,10 @@ impl BlockSize {
 
 enum MemoryBlockType {
     /// First half of parent.
+    /// It will be parent.
     FirstChild,
     /// Second half of parent.
+    /// It will merge into `FirstChild` when doubling.
     SecondChild,
     /// No parent. (root)
     Orphan,
@@ -141,7 +142,7 @@ impl BuddySystem {
         new_lists
     }
 
-    fn memory_block_size(layout: &Layout) -> BlockSize {
+    fn get_memory_block_size(layout: &Layout) -> BlockSize {
         match layout.size() {
             0x1000..0x2000 => BlockSize::Byte4K,
             0x2000..0x4000 => BlockSize::Byte8K,
