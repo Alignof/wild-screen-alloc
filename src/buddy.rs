@@ -86,6 +86,29 @@ impl MemoryBlockHeader {
             MemoryBlockType::Orphan => panic!("Orphan does not have buddy"),
         }
     }
+
+    pub fn try_merge(&mut self) -> Option<&'static mut Self> {
+        assert!(!self.is_used);
+        match self.kind {
+            MemoryBlockType::FirstChild => {
+                let buddy = self.get_buddy();
+                if buddy.is_used {
+                    None
+                } else {
+                    unsafe { Some(&mut *(self as *mut Self)) }
+                }
+            }
+            MemoryBlockType::SecondChild => {
+                let buddy = self.get_buddy();
+                if buddy.is_used {
+                    None
+                } else {
+                    unsafe { Some(&mut *(buddy as *mut Self)) }
+                }
+            }
+            MemoryBlockType::Orphan => None,
+        }
+    }
 }
 
 pub struct BuddySystem {
