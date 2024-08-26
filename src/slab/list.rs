@@ -1,6 +1,6 @@
 //! Implementation for linked list of Slab
 
-use super::{ObjectSize, Slab, SlabKind};
+use super::{FreeObject, ObjectSize, Slab, SlabKind};
 
 /// Node of `List`
 ///
@@ -24,7 +24,7 @@ use super::{ObjectSize, Slab, SlabKind};
 ///                                                                       4096
 /// ```
 #[repr(C)]
-struct Node {
+pub struct Node {
     /// Next node pointer
     next: Option<&'static mut Self>,
     /// Slab
@@ -50,6 +50,16 @@ impl Node {
     /// Return `SlabKind`
     fn kind(&self) -> &SlabKind {
         &self.slab.kind
+    }
+
+    /// Push new free object.
+    pub fn push(&mut self, slab: &'static mut FreeObject) {
+        self.slab.push(slab)
+    }
+
+    /// Pop free object.
+    pub fn pop(&mut self) -> Option<&'static mut FreeObject> {
+        self.slab.pop()
     }
 }
 

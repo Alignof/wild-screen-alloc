@@ -135,12 +135,14 @@ impl SlabLists {
 
     /// Get free object from partial
     fn pop_from_partial(&mut self) -> Option<&'static mut FreeObject> {
-        self.partial.head.pop()
+        // TODO
+        self.partial.head.as_mut().unwrap().pop()
     }
 
     /// Get free object from empty
     fn pop_from_empty(&mut self) -> Option<&'static mut FreeObject> {
-        self.empty.head.pop()
+        // TODO
+        self.empty.head.as_mut().unwrap().pop()
     }
 }
 
@@ -176,7 +178,8 @@ impl Cache {
     pub fn deallocate(&mut self, ptr: *mut u8) {
         let ptr = ptr.cast::<FreeObject>();
         unsafe {
-            self.slab_lists.empty.push(&mut *ptr);
+            // TODO
+            self.slab_lists.empty.head.as_mut().unwrap().push(&mut *ptr);
         }
     }
 }
