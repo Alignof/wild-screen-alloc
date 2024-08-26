@@ -158,7 +158,9 @@ impl BuddySystem {
         };
 
         match corresponding_list.pop() {
-            Some(ptr) => ptr as *mut MemoryBlockHeader as *mut u8,
+            Some(ptr) => unsafe {
+                (ptr as *mut MemoryBlockHeader).byte_add(size_of::<MemoryBlockHeader>()) as *mut u8
+            },
             None => self.split_request(corrensponding_block_size),
         }
     }
