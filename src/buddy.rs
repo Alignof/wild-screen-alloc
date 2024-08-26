@@ -75,4 +75,67 @@ impl MemoryBlockHeader {
 
 pub struct BuddySystem {
     block_4k_bytes: list::MemoryBlockList,
+    block_8k_bytes: list::MemoryBlockList,
+    block_16k_bytes: list::MemoryBlockList,
+    block_32k_bytes: list::MemoryBlockList,
+    block_64k_bytes: list::MemoryBlockList,
+    block_128k_bytes: list::MemoryBlockList,
+    block_256k_bytes: list::MemoryBlockList,
+    block_512k_bytes: list::MemoryBlockList,
+    block_1024k_bytes: list::MemoryBlockList,
+}
+
+impl BuddySystem {
+    /// Return all empty lists.
+    fn new_empty() -> Self {
+        BuddySystem {
+            block_4k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte4K),
+            block_8k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte8K),
+            block_16k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte16K),
+            block_32k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte32K),
+            block_64k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte64K),
+            block_128k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte128K),
+            block_256k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte256K),
+            block_512k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte512K),
+            block_1024k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte1024K),
+        }
+    }
+
+    /// Allocate memory blocks to the largest list of block sizes that can be allocated
+    pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
+        assert!(start_addr % constants::PAGE_SIZE == 0);
+        let current_addr = start_addr;
+        let remain_size = heap_size;
+        let mut new_lists = Self::new_empty();
+
+        let (current_addr, remain_size) = new_lists
+            .block_1024k_bytes
+            .initialize_greedily(current_addr, remain_size);
+        let (current_addr, remain_size) = new_lists
+            .block_512k_bytes
+            .initialize_greedily(current_addr, remain_size);
+        let (current_addr, remain_size) = new_lists
+            .block_256k_bytes
+            .initialize_greedily(current_addr, remain_size);
+        let (current_addr, remain_size) = new_lists
+            .block_128k_bytes
+            .initialize_greedily(current_addr, remain_size);
+        let (current_addr, remain_size) = new_lists
+            .block_64k_bytes
+            .initialize_greedily(current_addr, remain_size);
+        let (current_addr, remain_size) = new_lists
+            .block_32k_bytes
+            .initialize_greedily(current_addr, remain_size);
+        let (current_addr, remain_size) = new_lists
+            .block_16k_bytes
+            .initialize_greedily(current_addr, remain_size);
+        let (current_addr, remain_size) = new_lists
+            .block_8k_bytes
+            .initialize_greedily(current_addr, remain_size);
+        new_lists
+            .block_4k_bytes
+            .initialize_greedily(current_addr, remain_size);
+
+        new_lists
+    }
 }
