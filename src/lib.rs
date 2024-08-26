@@ -6,6 +6,7 @@ extern crate linked_list_allocator;
 mod slab;
 
 use alloc::alloc::{GlobalAlloc, Layout};
+use core::cell::OnceCell;
 use spin::Mutex;
 
 /// Constants.
@@ -95,7 +96,9 @@ impl SlabAllocator {
     }
 }
 
-pub struct WildScreenAlloc(Mutex<Option<SlabAllocator>>);
+pub struct WildScreenAlloc {
+    slab: Mutex<OnceCell<SlabAllocator>>,
+}
 
 impl WildScreenAlloc {
     /// Return empty `WildScreenAlloc`.
@@ -109,7 +112,9 @@ impl WildScreenAlloc {
     /// pub fn init_heap() { /* initialize ALLOCATOR */ }
     /// ```
     pub const fn empty() -> Self {
-        WildScreenAlloc(Mutex::new(None))
+        WildScreenAlloc {
+            slab: Mutex::new(OnceCell::new()),
+        }
     }
 
     /// Initialize allocator.
@@ -131,21 +136,30 @@ impl WildScreenAlloc {
     /// # Safety
     /// `start_addr` must be aligned 4096.
     pub unsafe fn init(&mut self, start_addr: usize, heap_size: usize) {
-        *self.0.lock() = Some(SlabAllocator::new(start_addr, heap_size));
+        self.slab
+            .lock()
+            .get_or_init(|| SlabAllocator::new(start_addr, heap_size));
     }
 
     /// Create new allocator locked by mutex.
     /// # Safety
     /// `start_addr` must be aligned 4096.
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
-        WildScreenAlloc(Mutex::new(Some(SlabAllocator::new(start_addr, heap_size))))
+        let new_slab = OnceCell::new();
+        new_slab
+            .set(SlabAllocator::new(start_addr, heap_size))
+            .unwrap_or_else(|_| panic!("SlabAllocator initialization failed"));
+
+        WildScreenAlloc {
+            slab: Mutex::new(new_slab),
+        }
     }
 }
 
 unsafe impl GlobalAlloc for WildScreenAlloc {
     /// Just call `SlabAllocator::allocte`.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        match *self.0.lock() {
+        match self.slab.lock().get_mut() {
             Some(ref mut allocator) => allocator.allocate(layout),
             None => panic!("The allocator is not initialized"),
         }
@@ -153,7 +167,7 @@ unsafe impl GlobalAlloc for WildScreenAlloc {
 
     /// Just call `SlabAllocator::deallocate`.
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        match *self.0.lock() {
+        match self.slab.lock().get_mut() {
             Some(ref mut allocator) => allocator.deallocate(ptr, layout),
             None => panic!("The allocator is not initialized"),
         }
