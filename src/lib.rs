@@ -11,7 +11,7 @@ use spin::Mutex;
 /// Constants.
 mod constants {
     /// Number of slab.
-    pub const NUM_OF_SLABS: usize = 8;
+    pub const DEFAULT_SLAB_NUM: usize = 8;
     /// Page size.
     pub const PAGE_SIZE: usize = 4096;
 }
