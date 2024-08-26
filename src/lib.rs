@@ -3,6 +3,7 @@
 extern crate alloc;
 extern crate linked_list_allocator;
 
+mod buddy;
 mod slab;
 
 use alloc::alloc::{GlobalAlloc, Layout};
@@ -11,7 +12,7 @@ use spin::Mutex;
 
 /// Constants.
 mod constants {
-    /// Number of slab.
+    /// Default number of slab.
     pub const DEFAULT_SLAB_NUM: usize = 8;
     /// Page size.
     pub const PAGE_SIZE: usize = 4096;
