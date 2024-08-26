@@ -39,15 +39,25 @@ impl MemoryBlockList {
     }
 
     /// Append new memory block
-    pub fn append(&mut self, mem_block: &'static mut MemoryBlockHeader) {
+    pub fn append(
+        &mut self,
+        mem_block: &'static mut MemoryBlockHeader,
+    ) -> Option<&'static mut MemoryBlockHeader> {
+        mem_block.is_used = false;
         mem_block.next = self.head.take();
-        self.head = Some(mem_block);
+        let merge_result = mem_block.try_merge();
+        if merge_result.is_none() {
+            self.head = Some(mem_block);
+        }
+
+        merge_result
     }
 
     /// Pop free memory block
     pub fn pop(&mut self) -> Option<&'static mut MemoryBlockHeader> {
         self.head.take().map(|header| {
             self.head = header.next.take();
+            header.is_used = true;
             header
         })
     }
