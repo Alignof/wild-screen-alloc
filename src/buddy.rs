@@ -14,6 +14,16 @@ pub enum BlockSize {
     Byte1024K = 1024 * 1024,
 }
 
-struct Header {}
+/// Header of memory block
+struct Header {
+    /// Is memory block used?
+    is_used: bool,
+    /// Memory block size.
+    size: BlockSize,
+    /// Next empty node of linked list.
+    next: &'static Header,
+    /// Buddy address.
+    buddy_addr: &'static Header,
+}
 
 struct BuddySystem {}
