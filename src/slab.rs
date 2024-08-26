@@ -4,6 +4,10 @@
 //!
 //! ref: [https://zenn.dev/junjunjunjun/articles/09b8e112c0219c](https://zenn.dev/junjunjunjun/articles/09b8e112c0219c)
 
+mod list;
+
+use super::constants;
+
 /// An enum that indicate size of objects managed by the Slab cache.
 #[derive(Copy, Clone)]
 pub enum ObjectSize {
@@ -14,16 +18,6 @@ pub enum ObjectSize {
     Byte1024 = 1024,
     Byte2048 = 2048,
     Byte4096 = 4096, // 4 kB = PAGE_SIZE
-}
-
-/// Type of Slab
-/// * Full - all objects are allocated.
-/// * Partial - some objects are allocated.
-/// * Empty - no objects are allocated.
-enum SlabKind {
-    Full,
-    Partial,
-    Empty,
 }
 
 /// A linked list managing free objects.
@@ -39,51 +33,83 @@ impl FreeObject {
     }
 }
 
-/// Slab header.
-struct SlabHead {
-    len: usize,
-    _kind: SlabKind,
-    head: Option<&'static mut FreeObject>,
-    _next: Option<&'static mut Self>,
+/// Slab (= 1 PAGE memory block)
+///
+/// # Memory layout
+/// ```ignore
+/// ┌──────────────────────────────────────────────────────────────────────────┐
+/// │                                                                          │
+/// │                           size_of::<Node>()                              │
+/// │   ◄──────────────────────────────────────────────────────────────────►   │
+/// │                                    size_of::<Slab>()                     │
+/// │  0              ◄────────────────────────────────────────────────────►   │
+/// │  ┌─────────────┬────────┬────────────┬──────────────┬─────────────────┐  │
+/// │  │  Node.next  │  kind  │  obj_size  │  used_bytes  │  free_obj_head ─┼──┘
+/// │  ├─────────────┼────────┴────┬───────┴─────┬────────┴───┬─────────────┤   
+/// └───► free_obj   │  free_obj   │  free_obj   │  free_obj  │  free_obj   │   
+///    ├─────────────┼─────────────┼─────────────┼────────────┼─────────────┤   
+///    │  free_obj   │  free_obj   │  free_obj   │  free_obj  │  free_obj   │   
+///    └─────────────┴─────────────┴─────────────┴────────────┴─────────────┘   
+///                                                                       4096
+/// ```
+#[repr(C)]
+struct Slab {
+    pub kind: SlabKind,
+    obj_size: ObjectSize,
+    used_bytes: usize,
+    free_obj_head: Option<&'static mut FreeObject>,
 }
 
-impl SlabHead {
+impl Slab {
+    /// Return empty object Slab
+    fn new_empty(kind: SlabKind, obj_size: ObjectSize) -> Self {
+        Slab {
+            kind,
+            obj_size,
+            used_bytes: 0,
+            free_obj_head: None,
+        }
+    }
+
     /// Initialize free objects list and return new `SlabHead`.
-    pub unsafe fn new(start_addr: usize, object_size: ObjectSize, num_of_object: usize) -> Self {
-        let mut new_list = Self::new_empty(SlabKind::Empty);
+    pub unsafe fn new(object_size: ObjectSize, free_obj_start_addr: usize) -> Self {
+        let num_of_object = (constants::PAGE_SIZE - size_of::<Slab>()) / object_size as usize;
+        assert!(num_of_object > 0);
+
+        let mut new_list = Self::new_empty(SlabKind::Empty, object_size);
         for off in (0..num_of_object).rev() {
-            let new_object = (start_addr + off * object_size as usize) as *mut FreeObject;
+            let new_object = (free_obj_start_addr + off * object_size as usize) as *mut FreeObject;
             new_list.push(&mut *new_object);
         }
 
         new_list
     }
 
-    /// Return empty head.
-    fn new_empty(kind: SlabKind) -> Self {
-        SlabHead {
-            len: 0,
-            _kind: kind,
-            head: None,
-            _next: None,
-        }
-    }
-
     /// Push new free object.
     fn push(&mut self, slab: &'static mut FreeObject) {
-        slab.next = self.head.take();
-        self.len += 1;
-        self.head = Some(slab);
+        slab.next = self.free_obj_head.take();
+        self.used_bytes += self.obj_size as usize;
+        self.free_obj_head = Some(slab);
     }
 
     /// Pop free object.
     fn pop(&mut self) -> Option<&'static mut FreeObject> {
-        self.head.take().map(|node| {
-            self.head = node.next.take();
-            self.len -= 1;
+        self.free_obj_head.take().map(|node| {
+            self.free_obj_head = node.next.take();
+            self.used_bytes -= self.obj_size as usize;
             node
         })
     }
+}
+
+/// Type of Slab
+enum SlabKind {
+    /// All objects are allocated.
+    Full,
+    /// Some objects are allocated.
+    Partial,
+    /// No objects are allocated.
+    Empty,
 }
 
 /// Linked lists for free slab management.
@@ -92,32 +118,29 @@ impl SlabHead {
 /// Allocator normally use partial, but it use empty list and move one to partial when partial is empty.
 /// Note that only "empty" is used temporarily now. (TODO!)
 struct SlabLists {
-    _full: SlabHead,
-    partial: SlabHead,
-    empty: SlabHead,
+    full: list::List,
+    partial: list::List,
+    empty: list::List,
 }
 
 impl SlabLists {
     /// Create new slab lists.
-    pub unsafe fn new(start_addr: usize, alloc_size: usize, object_size: ObjectSize) -> Self {
-        let num_of_object = alloc_size / object_size as usize;
-        assert!(num_of_object > 0);
-
+    pub unsafe fn new(object_size: ObjectSize) -> Self {
         SlabLists {
-            _full: SlabHead::new_empty(SlabKind::Full),
-            partial: SlabHead::new_empty(SlabKind::Partial),
-            empty: SlabHead::new(start_addr, object_size, num_of_object),
+            full: list::List::new_empty(),
+            partial: list::List::new_empty(),
+            empty: list::List::new(object_size, constants::DEFAULT_SLAB_NUM),
         }
     }
 
     /// Get free object from partial
     fn pop_from_partial(&mut self) -> Option<&'static mut FreeObject> {
-        self.partial.pop()
+        self.partial.head.pop()
     }
 
     /// Get free object from empty
     fn pop_from_empty(&mut self) -> Option<&'static mut FreeObject> {
-        self.empty.pop()
+        self.empty.head.pop()
     }
 }
 
