@@ -59,19 +59,18 @@ struct MemoryBlockHeader {
     /// Next empty node of linked list.
     next: Option<&'static mut MemoryBlockHeader>,
     /// Parent address
-    /// ```ignore
-    /// match self.parent {
-    ///     Some(addr) => {
-    ///         if addr == &self {
-    ///             // rhs
-    ///         } else {
-    ///             // lhs
-    ///         }
-    ///     }
-    ///     None => // root
-    /// }
-    /// ```
     kind: MemoryBlockType,
+}
+
+impl MemoryBlockHeader {
+    pub fn new(size: BlockSize) -> Self {
+        MemoryBlockHeader {
+            is_used: false,
+            size,
+            next: None,
+            kind: MemoryBlockType::Orphan,
+        }
+    }
 }
 
 pub struct BuddySystem {
