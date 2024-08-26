@@ -5,6 +5,8 @@
 mod list;
 
 use super::constants;
+use alloc::alloc::Layout;
+use core::ops::Range;
 
 /// Block size that is managed by buddy system.
 #[derive(Copy, Clone)]
@@ -137,5 +139,20 @@ impl BuddySystem {
             .initialize_greedily(current_addr, remain_size);
 
         new_lists
+    }
+
+    fn memory_block_size(layout: &Layout) -> BlockSize {
+        match layout.size() {
+            0x1000..0x2000 => BlockSize::Byte4K,
+            0x2000..0x4000 => BlockSize::Byte8K,
+            0x4000..0x8000 => BlockSize::Byte16K,
+            0x8000..0x10000 => BlockSize::Byte32K,
+            0x10000..0x20000 => BlockSize::Byte64K,
+            0x20000..0x40000 => BlockSize::Byte128K,
+            0x40000..0x80000 => BlockSize::Byte256K,
+            0x80000..0x100000 => BlockSize::Byte512K,
+            0x100000..usize::MAX => BlockSize::Byte1024K,
+            _ => unreachable!(),
+        }
     }
 }
