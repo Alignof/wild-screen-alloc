@@ -163,6 +163,45 @@ impl BuddySystem {
         }
     }
 
+    /// Deallocate(free) object.
+    /// # Safety
+    /// Given pointer must be valid.
+    ///
+    /// # Panics
+    /// If given ptr is null, it will panic.
+    pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
+        let corresponding_block_size = Self::get_memory_block_size(&layout);
+        let mut corresponding_list = match corresponding_block_size {
+            BlockSize::Byte4K => &mut self.block_4k_bytes,
+            BlockSize::Byte8K => &mut self.block_8k_bytes,
+            BlockSize::Byte16K => &mut self.block_16k_bytes,
+            BlockSize::Byte32K => &mut self.block_32k_bytes,
+            BlockSize::Byte64K => &mut self.block_64k_bytes,
+            BlockSize::Byte128K => &mut self.block_128k_bytes,
+            BlockSize::Byte256K => &mut self.block_256k_bytes,
+            BlockSize::Byte512K => &mut self.block_512k_bytes,
+            BlockSize::Byte1024K => &mut self.block_1024k_bytes,
+        };
+
+        // merge child block and move doubled block to corresponding list
+        let body_addr = ptr as usize;
+        let mut header_ptr = (body_addr - size_of::<MemoryBlockHeader>()) as *mut MemoryBlockHeader;
+        while let Some(merged) = corresponding_list.append(&mut *header_ptr) {
+            header_ptr = merged;
+            corresponding_list = match corresponding_block_size {
+                BlockSize::Byte4K => &mut self.block_8k_bytes,
+                BlockSize::Byte8K => &mut self.block_16k_bytes,
+                BlockSize::Byte16K => &mut self.block_32k_bytes,
+                BlockSize::Byte32K => &mut self.block_64k_bytes,
+                BlockSize::Byte64K => &mut self.block_128k_bytes,
+                BlockSize::Byte128K => &mut self.block_256k_bytes,
+                BlockSize::Byte256K => &mut self.block_512k_bytes,
+                BlockSize::Byte512K => &mut self.block_1024k_bytes,
+                BlockSize::Byte1024K => unreachable!(),
+            }
+        }
+    }
+
     fn get_memory_block_size(layout: &Layout) -> BlockSize {
         match layout.size() {
             0x1000..0x2000 => BlockSize::Byte4K,
