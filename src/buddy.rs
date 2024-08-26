@@ -2,6 +2,8 @@
 //!
 //! ref: [https://github.com/evanw/buddy-malloc](https://github.com/evanw/buddy-malloc)
 
+mod list;
+
 pub enum BlockSize {
     Byte4K = 4 * 1024, // = PAGE_SIZE
     Byte8K = 8 * 1024,
@@ -15,15 +17,17 @@ pub enum BlockSize {
 }
 
 /// Header of memory block
-struct Header {
+struct MemoryBlockHeader {
     /// Is memory block used?
     is_used: bool,
     /// Memory block size.
     size: BlockSize,
     /// Next empty node of linked list.
-    next: &'static Header,
+    next: Option<&'static mut MemoryBlockHeader>,
     /// Buddy address.
-    buddy_addr: &'static Header,
+    buddy_addr: &'static MemoryBlockHeader,
 }
 
-struct BuddySystem {}
+pub struct BuddySystem {
+    block_4k_bytes: list::MemoryBlockList,
+}
