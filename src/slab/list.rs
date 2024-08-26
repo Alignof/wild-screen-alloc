@@ -24,42 +24,20 @@ impl Node {
 /// Linked list of Slab
 pub struct List {
     len: usize,
-    obj_size: ObjectSize,
-    head: Option<&'static mut Node>,
+    pub head: Option<&'static mut Node>,
 }
 
 impl List {
     /// Return with initialize Slab.
-    pub fn new(obj_size: ObjectSize) -> Self {
+    pub fn new(obj_size: ObjectSize, default_node_num: usize) -> Self {
         List {
-            len: 1,
-            obj_size,
-            head: Some(&'static mut Node::new(obj_size)),
+            len: default_node_num,
+            head: Some(Node::new(obj_size)),
         }
     }
 
     /// Return with empty head.
-    pub fn new_empty(obj_size: ObjectSize) -> Self {
-        List {
-            len: 0,
-            obj_size,
-            head: None,
-        }
-    }
-
-    /// Push new free object.
-    pub fn push(&mut self, node: &'static mut Node) {
-        node.next = self.head.take();
-        self.len += 1;
-        self.head = Some(node);
-    }
-
-    /// Pop free object.
-    pub fn pop(&mut self) -> Option<&'static mut Node> {
-        self.head.take().map(|node| {
-            self.head = node.next.take();
-            self.len -= 1;
-            node
-        })
+    pub fn new_empty() -> Self {
+        List { len: 0, head: None }
     }
 }
