@@ -265,8 +265,8 @@ impl BuddySystem {
             0x20000..0x40000 => BlockSize::Byte128K,
             0x40000..0x80000 => BlockSize::Byte256K,
             0x80000..0x100000 => BlockSize::Byte512K,
-            0x100000..usize::MAX => BlockSize::Byte1024K,
-            _ => unreachable!(),
+            0x100000..0x200000 => BlockSize::Byte1024K,
+            _ => panic!("requested size is too large"),
         }
     }
 }
