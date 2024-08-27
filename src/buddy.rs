@@ -84,13 +84,20 @@ struct BuddyManager {
     base_addr: usize,
     /// Buddy (two child of self) state
     /// - 0: Unused or BothUsed
-    /// - 1: OneUsed
+    /// - 1: Splited (OneUsed)
     ///
     /// It indicate two child state of block, so minimum block does not require this one.
     buddy_state: [u8; (1 << (constants::NUM_OF_BUDDY_SIZE - 1)) / 8],
 }
 
 impl BuddyManager {
+    pub fn new(base_addr: usize) -> Self {
+        BuddyManager {
+            base_addr,
+            buddy_state: [0u8; (1 << (constants::NUM_OF_BUDDY_SIZE - 1)) / 8],
+        }
+    }
+
     fn get_state(&self, index: usize) -> bool {
         (self.buddy_state[index / 8] >> (index % 8)) & 1 == 1
     }
