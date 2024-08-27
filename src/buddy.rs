@@ -26,25 +26,6 @@ pub enum BlockSize {
 }
 
 impl BlockSize {
-    fn header_size(&self) -> usize {
-        match self {
-            Self::Byte4K => size_of::<FreeMemoryBlock>() * 1,
-            Self::Byte8K => size_of::<FreeMemoryBlock>() * 2,
-            Self::Byte16K => size_of::<FreeMemoryBlock>() * 4,
-            Self::Byte32K => size_of::<FreeMemoryBlock>() * 8,
-            Self::Byte64K => size_of::<FreeMemoryBlock>() * 16,
-            Self::Byte128K => size_of::<FreeMemoryBlock>() * 32,
-            Self::Byte256K => size_of::<FreeMemoryBlock>() * 64,
-            Self::Byte512K => size_of::<FreeMemoryBlock>() * 128,
-            Self::Byte1024K => size_of::<FreeMemoryBlock>() * 256,
-        }
-    }
-
-    pub fn size_with_header(&self) -> usize {
-        let block_size = self.clone() as usize;
-        self.header_size() + block_size
-    }
-
     /// Return smaller size.
     pub fn smaller(self) -> Self {
         match self {

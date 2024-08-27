@@ -113,8 +113,8 @@ impl MemoryBlockList {
                 self.append(&mut *new_header_ptr);
             }
 
-            current_addr += self.block_size.size_with_header();
-            remain_size -= self.block_size.size_with_header();
+            current_addr += self.block_size as usize;
+            remain_size -= self.block_size as usize;
         }
 
         (current_addr, remain_size)
