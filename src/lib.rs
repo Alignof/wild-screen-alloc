@@ -22,6 +22,7 @@ mod constants {
 
 pub struct WildScreenAlloc {
     slab: Mutex<OnceCell<slab::SlabAllocator>>,
+    buddy: Mutex<OnceCell<buddy::BuddySystem>>,
 }
 
 impl WildScreenAlloc {
@@ -38,6 +39,7 @@ impl WildScreenAlloc {
     pub const fn empty() -> Self {
         WildScreenAlloc {
             slab: Mutex::new(OnceCell::new()),
+            buddy: Mutex::new(OnceCell::new()),
         }
     }
 
@@ -63,6 +65,9 @@ impl WildScreenAlloc {
         self.slab
             .lock()
             .get_or_init(|| slab::SlabAllocator::new(start_addr, heap_size));
+        self.buddy
+            .lock()
+            .get_or_init(|| buddy::BuddySystem::new(start_addr, heap_size));
     }
 
     /// Create new allocator locked by mutex.
@@ -73,9 +78,14 @@ impl WildScreenAlloc {
         new_slab
             .set(slab::SlabAllocator::new(start_addr, heap_size))
             .unwrap_or_else(|_| panic!("SlabAllocator initialization failed"));
+        let new_buddy = OnceCell::new();
+        new_buddy
+            .set(buddy::BuddySystem::new(start_addr, heap_size))
+            .unwrap_or_else(|_| panic!("BuddySystem initialization failed"));
 
         WildScreenAlloc {
             slab: Mutex::new(new_slab),
+            buddy: Mutex::new(new_buddy),
         }
     }
 }
@@ -83,17 +93,35 @@ impl WildScreenAlloc {
 unsafe impl GlobalAlloc for WildScreenAlloc {
     /// Just call `SlabAllocator::allocte`.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        match self.slab.lock().get_mut() {
-            Some(ref mut allocator) => allocator.allocate(layout),
-            None => panic!("The allocator is not initialized"),
+        if layout.size() < 4096 {
+            self.slab
+                .lock()
+                .get_mut()
+                .expect("Slab allocator is not initialized")
+                .allocate(layout)
+        } else {
+            self.buddy
+                .lock()
+                .get_mut()
+                .expect("Buddy system is not initialized")
+                .allocate(layout)
         }
     }
 
     /// Just call `SlabAllocator::deallocate`.
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        match self.slab.lock().get_mut() {
-            Some(ref mut allocator) => allocator.deallocate(ptr, layout),
-            None => panic!("The allocator is not initialized"),
+        if layout.size() < 4096 {
+            self.slab
+                .lock()
+                .get_mut()
+                .expect("Slab allocator is not initialized")
+                .deallocate(ptr, layout)
+        } else {
+            self.buddy
+                .lock()
+                .get_mut()
+                .expect("Buddy system is not initialized")
+                .deallocate(ptr, layout)
         }
     }
 }
