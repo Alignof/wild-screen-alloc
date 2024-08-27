@@ -5,8 +5,10 @@
 mod list;
 
 use super::constants;
-use alloc::alloc::Layout;
 use list::FreeMemoryBlock;
+
+use alloc::alloc::Layout;
+use core::ops::Range;
 
 /// Block size that is managed by buddy system.
 #[derive(Copy, Clone)]
@@ -77,6 +79,36 @@ impl BlockSize {
     }
 }
 
+struct BuddyManager {
+    /// Base address of entire memory blocks
+    base_addr: usize,
+    /// Buddy (two child of self) state
+    /// - 0: Unused or BothUsed
+    /// - 1: OneUsed
+    ///
+    /// It indicate two child state of block, so minimum block does not require this one.
+    buddy_state: [u8; (1 << (constants::NUM_OF_BUDDY_SIZE - 1)) / 8],
+}
+
+impl BuddyManager {
+    fn get_buddy_state(&self, index: usize) -> bool {
+        (self.buddy_state[index / 8] >> (index % 8)) & 1 == 1
+    }
+
+    fn ptr_to_index(&self, block_ptr: *const FreeMemoryBlock) -> usize {
+        let block_addr = block_ptr as usize;
+        let addr_offset = block_addr - self.base_addr;
+        let buddy_index_start = 1 << unsafe { (*block_ptr).size.index() };
+        let buddy_index_offset = addr_offset >> unsafe { (*block_ptr).size.log2() };
+
+        buddy_index_start + buddy_index_offset
+    }
+
+    pub fn is_mergeable(&self, block_ptr: *const FreeMemoryBlock) -> bool {
+        let buddy_index = self.ptr_to_index(block_ptr);
+        let parant_buddy_index = (buddy_index - 1) / 2;
+        self.get_buddy_state(parant_buddy_index)
+    }
 }
 
 pub struct BuddySystem {

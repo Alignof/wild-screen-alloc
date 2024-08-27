@@ -5,7 +5,7 @@ use super::BlockSize;
 /// Node of `MemoryBlockList`
 pub struct FreeMemoryBlock {
     /// Memory block size.
-    size: BlockSize,
+    pub size: BlockSize,
     /// Next empty node of linked list.
     next: Option<&'static mut Self>,
 }

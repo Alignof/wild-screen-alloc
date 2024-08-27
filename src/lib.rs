@@ -14,6 +14,8 @@ use spin::Mutex;
 mod constants {
     /// Default number of slab.
     pub const DEFAULT_SLAB_NUM: usize = 8;
+    /// Number of buddy size.
+    pub const NUM_OF_BUDDY_SIZE: usize = 9;
     /// Page size.
     pub const PAGE_SIZE: usize = 4096;
 }
