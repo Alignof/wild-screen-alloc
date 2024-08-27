@@ -8,7 +8,8 @@ use super::constants;
 use list::FreeMemoryBlock;
 
 use alloc::alloc::Layout;
-use core::ops::Range;
+use alloc::rc::Rc;
+use core::cell::RefCell;
 
 /// Block size that is managed by buddy system.
 #[derive(Copy, Clone)]
@@ -138,23 +139,51 @@ pub struct BuddySystem {
     block_256k_bytes: list::MemoryBlockList,
     block_512k_bytes: list::MemoryBlockList,
     block_1024k_bytes: list::MemoryBlockList,
-    buddy_manager: BuddyManager,
+    buddy_manager: Rc<RefCell<BuddyManager>>,
 }
 
 impl BuddySystem {
     /// Return all empty lists.
     fn new_empty(start_addr: usize) -> Self {
+        let buddy_manager = Rc::new(RefCell::new(BuddyManager::new(start_addr)));
         BuddySystem {
-            block_4k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte4K),
-            block_8k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte8K),
-            block_16k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte16K),
-            block_32k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte32K),
-            block_64k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte64K),
-            block_128k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte128K),
-            block_256k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte256K),
-            block_512k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte512K),
-            block_1024k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte1024K),
-            buddy_manager: BuddyManager::new(start_addr),
+            block_4k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte4K,
+                Rc::clone(&buddy_manager),
+            ),
+            block_8k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte8K,
+                Rc::clone(&buddy_manager),
+            ),
+            block_16k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte16K,
+                Rc::clone(&buddy_manager),
+            ),
+            block_32k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte32K,
+                Rc::clone(&buddy_manager),
+            ),
+            block_64k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte64K,
+                Rc::clone(&buddy_manager),
+            ),
+            block_128k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte128K,
+                Rc::clone(&buddy_manager),
+            ),
+            block_256k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte256K,
+                Rc::clone(&buddy_manager),
+            ),
+            block_512k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte512K,
+                Rc::clone(&buddy_manager),
+            ),
+            block_1024k_bytes: list::MemoryBlockList::new_empty(
+                BlockSize::Byte1024K,
+                Rc::clone(&buddy_manager),
+            ),
+            buddy_manager,
         }
     }
 

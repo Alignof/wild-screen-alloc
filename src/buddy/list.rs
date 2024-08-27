@@ -1,6 +1,9 @@
 //! Implementation for linked list for buddy system.
 
-use super::BlockSize;
+use super::{BlockSize, BuddyManager};
+
+use alloc::rc::Rc;
+use core::cell::RefCell;
 
 /// Node of `MemoryBlockList`
 pub struct FreeMemoryBlock {
@@ -38,16 +41,19 @@ impl FreeMemoryBlock {
     }
 
     /// Try merge memory block to double
-    pub fn try_merge(&mut self) -> Option<&'static mut Self> {
+    pub fn try_merge(
+        &mut self,
+        buddy_manager: &Rc<RefCell<BuddyManager>>,
+    ) -> Option<&'static mut Self> {
         // Mex size block can not merge
         if matches!(self.size, BlockSize::Byte1024K) {
             return None;
         }
 
-        if self.mergeable() {
+        if buddy_manager.borrow_mut().is_mergeable(self) {
             if self.is_first_half() {
                 self.size = self.size.bigger();
-                Some(self)
+                unsafe { Some(&mut *(self as *mut Self)) }
             } else {
                 let buddy = self.get_buddy();
                 buddy.size = buddy.size.bigger();
@@ -62,14 +68,16 @@ impl FreeMemoryBlock {
 /// Linked list of memory block
 pub struct MemoryBlockList {
     block_size: BlockSize,
+    buddy_manager: Rc<RefCell<BuddyManager>>,
     pub head: Option<&'static mut FreeMemoryBlock>,
 }
 
 impl MemoryBlockList {
     /// Return with empty head.
-    pub fn new_empty(block_size: BlockSize) -> Self {
+    pub fn new_empty(block_size: BlockSize, buddy_manager: Rc<RefCell<BuddyManager>>) -> Self {
         MemoryBlockList {
             block_size,
+            buddy_manager,
             head: None,
         }
     }
@@ -101,7 +109,7 @@ impl MemoryBlockList {
         mem_block: &'static mut FreeMemoryBlock,
     ) -> Option<&'static mut FreeMemoryBlock> {
         mem_block.next = self.head.take();
-        let merge_result = mem_block.try_merge();
+        let merge_result = mem_block.try_merge(&self.buddy_manager);
         if merge_result.is_none() {
             self.head = Some(mem_block);
         }
