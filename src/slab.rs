@@ -7,7 +7,12 @@
 mod list;
 
 use super::constants;
+use crate::buddy;
+
 use alloc::alloc::Layout;
+use alloc::sync::Arc;
+use core::cell::OnceCell;
+use spin::Mutex;
 
 /// An enum that indicate size of objects managed by the Slab cache.
 #[derive(Copy, Clone)]
@@ -126,11 +131,18 @@ struct SlabLists {
 
 impl SlabLists {
     /// Create new slab lists.
-    pub unsafe fn new(object_size: ObjectSize) -> Self {
+    pub unsafe fn new(
+        object_size: ObjectSize,
+        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    ) -> Self {
         SlabLists {
-            full: list::List::new_empty(),
-            partial: list::List::new_empty(),
-            empty: list::List::new(object_size, constants::DEFAULT_SLAB_NUM),
+            full: list::List::new_empty(page_allocator.clone()),
+            partial: list::List::new_empty(page_allocator.clone()),
+            empty: list::List::new(
+                object_size,
+                constants::DEFAULT_SLAB_NUM,
+                page_allocator.clone(),
+            ),
         }
     }
 
@@ -157,10 +169,13 @@ pub struct Cache {
 
 impl Cache {
     /// Create new slab cache.
-    pub unsafe fn new(object_size: ObjectSize) -> Self {
+    pub unsafe fn new(
+        object_size: ObjectSize,
+        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    ) -> Self {
         Cache {
             _object_size: object_size,
-            slab_lists: SlabLists::new(object_size),
+            slab_lists: SlabLists::new(object_size, page_allocator),
         }
     }
 
@@ -205,15 +220,19 @@ impl SlabAllocator {
     /// # Panics
     /// If `start_addr` isn't aligned 4096, this function will panic.
     #[must_use]
-    pub unsafe fn new(_start_addr: usize, _heap_size: usize) -> Self {
+    pub unsafe fn new(
+        _start_addr: usize,
+        _heap_size: usize,
+        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    ) -> Self {
         SlabAllocator {
-            slab_64_bytes: Cache::new(ObjectSize::Byte64),
-            slab_128_bytes: Cache::new(ObjectSize::Byte128),
-            slab_256_bytes: Cache::new(ObjectSize::Byte256),
-            slab_512_bytes: Cache::new(ObjectSize::Byte512),
-            slab_1024_bytes: Cache::new(ObjectSize::Byte1024),
-            slab_2048_bytes: Cache::new(ObjectSize::Byte2048),
-            slab_4096_bytes: Cache::new(ObjectSize::Byte4096),
+            slab_64_bytes: Cache::new(ObjectSize::Byte64, page_allocator.clone()),
+            slab_128_bytes: Cache::new(ObjectSize::Byte128, page_allocator.clone()),
+            slab_256_bytes: Cache::new(ObjectSize::Byte256, page_allocator.clone()),
+            slab_512_bytes: Cache::new(ObjectSize::Byte512, page_allocator.clone()),
+            slab_1024_bytes: Cache::new(ObjectSize::Byte1024, page_allocator.clone()),
+            slab_2048_bytes: Cache::new(ObjectSize::Byte2048, page_allocator.clone()),
+            slab_4096_bytes: Cache::new(ObjectSize::Byte4096, page_allocator.clone()),
         }
     }
 

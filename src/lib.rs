@@ -7,6 +7,7 @@ mod buddy;
 mod slab;
 
 use alloc::alloc::{GlobalAlloc, Layout};
+use alloc::sync::Arc;
 use core::cell::OnceCell;
 use spin::Mutex;
 
@@ -22,7 +23,7 @@ mod constants {
 
 pub struct WildScreenAlloc {
     slab: Mutex<OnceCell<slab::SlabAllocator>>,
-    buddy: Mutex<OnceCell<buddy::BuddySystem>>,
+    buddy: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
 }
 
 impl WildScreenAlloc {
@@ -36,10 +37,10 @@ impl WildScreenAlloc {
     ///
     /// pub fn init_heap() { /* initialize ALLOCATOR */ }
     /// ```
-    pub const fn empty() -> Self {
+    pub fn empty() -> Self {
         WildScreenAlloc {
             slab: Mutex::new(OnceCell::new()),
-            buddy: Mutex::new(OnceCell::new()),
+            buddy: Arc::new(Mutex::new(OnceCell::new())),
         }
     }
 
@@ -62,30 +63,36 @@ impl WildScreenAlloc {
     /// # Safety
     /// `start_addr` must be aligned 4096.
     pub unsafe fn init(&mut self, start_addr: usize, heap_size: usize) {
-        self.slab
-            .lock()
-            .get_or_init(|| slab::SlabAllocator::new(start_addr, heap_size));
         self.buddy
             .lock()
             .get_or_init(|| buddy::BuddySystem::new(start_addr, heap_size));
+        self.slab
+            .lock()
+            .get_or_init(|| slab::SlabAllocator::new(start_addr, heap_size, self.buddy.clone()));
     }
 
     /// Create new allocator locked by mutex.
     /// # Safety
     /// `start_addr` must be aligned 4096.
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
-        let new_slab = OnceCell::new();
-        new_slab
-            .set(slab::SlabAllocator::new(start_addr, heap_size))
-            .unwrap_or_else(|_| panic!("SlabAllocator initialization failed"));
         let new_buddy = OnceCell::new();
         new_buddy
             .set(buddy::BuddySystem::new(start_addr, heap_size))
             .unwrap_or_else(|_| panic!("BuddySystem initialization failed"));
+        let buddy = Arc::new(Mutex::new(new_buddy));
+
+        let new_slab = OnceCell::new();
+        new_slab
+            .set(slab::SlabAllocator::new(
+                start_addr,
+                heap_size,
+                buddy.clone(),
+            ))
+            .unwrap_or_else(|_| panic!("SlabAllocator initialization failed"));
 
         WildScreenAlloc {
             slab: Mutex::new(new_slab),
-            buddy: Mutex::new(new_buddy),
+            buddy,
         }
     }
 }
