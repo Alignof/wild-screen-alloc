@@ -50,7 +50,12 @@ impl FreeMemoryBlock {
             return None;
         }
 
-        if buddy_manager.borrow_mut().is_mergeable(self) {
+        let mut buddy_manager = buddy_manager.borrow_mut();
+        if buddy_manager.is_mergeable(self) {
+            // change buddy state splited to unused
+            buddy_manager.flip_buddy_state(self);
+
+            // return pointer of head of one
             if self.is_first_half() {
                 self.size = self.size.bigger();
                 unsafe { Some(&mut *(self as *mut Self)) }
