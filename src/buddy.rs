@@ -138,11 +138,12 @@ pub struct BuddySystem {
     block_256k_bytes: list::MemoryBlockList,
     block_512k_bytes: list::MemoryBlockList,
     block_1024k_bytes: list::MemoryBlockList,
+    buddy_manager: BuddyManager,
 }
 
 impl BuddySystem {
     /// Return all empty lists.
-    fn new_empty() -> Self {
+    fn new_empty(start_addr: usize) -> Self {
         BuddySystem {
             block_4k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte4K),
             block_8k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte8K),
@@ -153,6 +154,7 @@ impl BuddySystem {
             block_256k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte256K),
             block_512k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte512K),
             block_1024k_bytes: list::MemoryBlockList::new_empty(BlockSize::Byte1024K),
+            buddy_manager: BuddyManager::new(start_addr),
         }
     }
 
@@ -161,7 +163,7 @@ impl BuddySystem {
         assert!(start_addr % constants::PAGE_SIZE == 0);
         let current_addr = start_addr;
         let remain_size = heap_size;
-        let mut new_lists = Self::new_empty();
+        let mut new_lists = Self::new_empty(start_addr);
 
         let (current_addr, remain_size) = new_lists
             .block_1024k_bytes
