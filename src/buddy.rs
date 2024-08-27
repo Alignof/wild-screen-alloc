@@ -91,8 +91,12 @@ struct BuddyManager {
 }
 
 impl BuddyManager {
-    fn get_buddy_state(&self, index: usize) -> bool {
+    fn get_state(&self, index: usize) -> bool {
         (self.buddy_state[index / 8] >> (index % 8)) & 1 == 1
+    }
+
+    fn flip_state(&mut self, index: usize) {
+        self.buddy_state[index / 8] ^= 1 << (index % 8);
     }
 
     fn ptr_to_index(&self, block_ptr: *const FreeMemoryBlock) -> usize {
@@ -104,10 +108,16 @@ impl BuddyManager {
         buddy_index_start + buddy_index_offset
     }
 
+    pub fn flip_buddy_state(&mut self, block_ptr: *const FreeMemoryBlock) {
+        let buddy_index = self.ptr_to_index(block_ptr);
+        let parant_buddy_index = (buddy_index - 1) / 2;
+        self.flip_state(parant_buddy_index);
+    }
+
     pub fn is_mergeable(&self, block_ptr: *const FreeMemoryBlock) -> bool {
         let buddy_index = self.ptr_to_index(block_ptr);
         let parant_buddy_index = (buddy_index - 1) / 2;
-        self.get_buddy_state(parant_buddy_index)
+        self.get_state(parant_buddy_index)
     }
 }
 
