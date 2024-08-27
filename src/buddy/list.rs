@@ -18,6 +18,18 @@ impl FreeMemoryBlock {
         FreeMemoryBlock { size, next: None }
     }
 
+    /// Split memory block into two smaller block
+    pub fn split(&mut self) -> (&'static mut Self, &'static mut Self) {
+        let self_ptr = self as *mut Self;
+        assert!(self_ptr as usize % self.size.smaller() as usize == 0);
+        debug_assert!(matches!(self.next, None));
+
+        let first_child = self_ptr as *mut Self;
+        let second_child = unsafe { first_child.byte_add(self.size as usize) };
+
+        unsafe { (&mut *first_child, &mut *second_child) }
+    }
+
     /// Is first half child
     ///
     /// This method used to return address of parant block
