@@ -45,6 +45,22 @@ impl BlockSize {
         self.header_size() + block_size
     }
 
+    /// Return smaller size.
+    pub fn smaller(self) -> Self {
+        match self {
+            Self::Byte4K => panic!("Byte4K is min size block"),
+            Self::Byte8K => BlockSize::Byte4K,
+            Self::Byte16K => BlockSize::Byte8K,
+            Self::Byte32K => BlockSize::Byte16K,
+            Self::Byte64K => BlockSize::Byte32K,
+            Self::Byte128K => BlockSize::Byte64K,
+            Self::Byte256K => BlockSize::Byte128K,
+            Self::Byte512K => BlockSize::Byte256K,
+            Self::Byte1024K =>BlockSize::Byte512K,  
+        }
+    }
+
+    /// Return bigger size.
     pub fn bigger(self) -> Self {
         match self {
             Self::Byte4K => BlockSize::Byte8K,
