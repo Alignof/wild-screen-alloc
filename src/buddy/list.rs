@@ -2,6 +2,63 @@
 
 use super::{BlockSize, MemoryBlockHeader};
 
+/// Node of `MemoryBlockList`
+pub struct FreeMemoryBlock {
+    /// Memory block size.
+    size: BlockSize,
+    /// Next empty node of linked list.
+    next: Option<&'static mut Self>,
+}
+
+impl FreeMemoryBlock {
+    pub fn new(size: BlockSize) -> Self {
+        FreeMemoryBlock { size, next: None }
+    }
+
+    /// Is first half child
+    ///
+    /// This method used to return address of parant block
+    fn is_first_half(&self) -> bool {
+        let self_addr = self as *const Self as usize;
+        self_addr % self.size.bigger() as usize == 0
+    }
+
+    /// Get buddy
+    ///
+    /// Address is calculated by self address.
+    fn get_buddy(&mut self) -> &'static mut Self {
+        let self_addr = self as *mut Self;
+        unsafe {
+            if self.is_first_half() {
+                &mut *(self_addr.byte_add(self.size as usize))
+            } else {
+                &mut *(self_addr.byte_sub(self.size as usize))
+            }
+        }
+    }
+
+    /// Try merge memory block to double
+    pub fn try_merge(&mut self) -> Option<&'static mut Self> {
+        // Mex size block can not merge
+        if matches!(self.size, BlockSize::Byte1024K) {
+            return None;
+        }
+
+        if self.mergeable() {
+            if self.is_first_half() {
+                self.size = self.size.bigger();
+                Some(self)
+            } else {
+                let buddy = self.get_buddy();
+                buddy.size = buddy.size.bigger();
+                Some(buddy)
+            }
+        } else {
+            None
+        }
+    }
+}
+
 /// Linked list of memory block
 pub struct MemoryBlockList {
     block_size: BlockSize,
