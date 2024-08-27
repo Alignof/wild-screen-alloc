@@ -57,17 +57,6 @@ impl BlockSize {
     }
 }
 
-enum MemoryBlockType {
-    /// First half of parent.
-    /// It will be parent.
-    FirstChild,
-    /// Second half of parent.
-    /// It will merge into `FirstChild` when doubling.
-    SecondChild,
-    /// No parent. (root)
-    Orphan,
-}
-
 pub struct BuddySystem {
     block_4k_bytes: list::MemoryBlockList,
     block_8k_bytes: list::MemoryBlockList,
