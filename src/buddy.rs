@@ -70,6 +70,11 @@ impl BlockSize {
             Self::Byte1024K => 20,
         }
     }
+
+    /// Return `log2_(self) - log2_(Byte4K)`
+    pub fn index(&self) -> usize {
+        self.log2() - Self::Byte4K.log2()
+    }
 }
 
 }
