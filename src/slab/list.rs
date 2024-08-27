@@ -82,11 +82,11 @@ impl List {
         default_node_num: usize,
         page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
-        let new_page = page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Node;
+        let new_page_addr = page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Node;
         List {
             len: default_node_num,
             page_allocator,
-            head: Some(Node::new(obj_size, new_page)),
+            head: Some(Node::new(obj_size, new_page_addr)),
         }
     }
 
@@ -97,5 +97,19 @@ impl List {
             page_allocator,
             head: None,
         }
+    }
+
+    /// Create new node and append to list.
+    pub fn append_new_node(&mut self, obj_size: ObjectSize) {
+        let new_page_addr = self
+            .page_allocator
+            .lock()
+            .get_mut()
+            .unwrap()
+            .page_allocate() as *mut Node;
+        let new_node = Node::new(obj_size, new_page_addr);
+        new_node.next = self.head.take();
+        self.len += 1;
+        self.head = Some(new_node);
     }
 }
