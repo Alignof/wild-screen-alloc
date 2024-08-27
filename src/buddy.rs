@@ -155,7 +155,7 @@ pub struct BuddySystem {
     block_256k_bytes: list::MemoryBlockList,
     block_512k_bytes: list::MemoryBlockList,
     block_1024k_bytes: list::MemoryBlockList,
-    buddy_manager: Rc<RefCell<BuddyManager>>,
+    _buddy_manager: Rc<RefCell<BuddyManager>>,
 }
 
 impl BuddySystem {
@@ -199,7 +199,7 @@ impl BuddySystem {
                 BlockSize::Byte1024K,
                 Rc::clone(&buddy_manager),
             ),
-            buddy_manager,
+            _buddy_manager: buddy_manager,
         }
     }
 
