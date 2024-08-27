@@ -1,6 +1,6 @@
 //! Implementation for linked list for buddy system.
 
-use super::{BlockSize, MemoryBlockHeader};
+use super::BlockSize;
 
 /// Node of `MemoryBlockList`
 pub struct FreeMemoryBlock {
@@ -62,7 +62,7 @@ impl FreeMemoryBlock {
 /// Linked list of memory block
 pub struct MemoryBlockList {
     block_size: BlockSize,
-    pub head: Option<&'static mut MemoryBlockHeader>,
+    pub head: Option<&'static mut FreeMemoryBlock>,
 }
 
 impl MemoryBlockList {
@@ -82,9 +82,9 @@ impl MemoryBlockList {
         mut remain_size: usize,
     ) -> (usize, usize) {
         while remain_size < self.block_size as usize {
-            let new_header_ptr = current_addr as *mut MemoryBlockHeader;
+            let new_header_ptr = current_addr as *mut FreeMemoryBlock;
             unsafe {
-                *new_header_ptr = MemoryBlockHeader::new(self.block_size);
+                *new_header_ptr = FreeMemoryBlock::new(self.block_size);
                 self.append(&mut *new_header_ptr);
             }
 
@@ -98,9 +98,8 @@ impl MemoryBlockList {
     /// Append new memory block
     pub fn append(
         &mut self,
-        mem_block: &'static mut MemoryBlockHeader,
-    ) -> Option<&'static mut MemoryBlockHeader> {
-        mem_block.is_used = false;
+        mem_block: &'static mut FreeMemoryBlock,
+    ) -> Option<&'static mut FreeMemoryBlock> {
         mem_block.next = self.head.take();
         let merge_result = mem_block.try_merge();
         if merge_result.is_none() {
@@ -111,10 +110,9 @@ impl MemoryBlockList {
     }
 
     /// Pop free memory block
-    pub fn pop(&mut self) -> Option<&'static mut MemoryBlockHeader> {
+    pub fn pop(&mut self) -> Option<&'static mut FreeMemoryBlock> {
         self.head.take().map(|header| {
             self.head = header.next.take();
-            header.is_used = true;
             header
         })
     }

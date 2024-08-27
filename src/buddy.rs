@@ -6,6 +6,7 @@ mod list;
 
 use super::constants;
 use alloc::alloc::Layout;
+use list::FreeMemoryBlock;
 
 /// Block size that is managed by buddy system.
 #[derive(Copy, Clone)]
@@ -24,15 +25,15 @@ pub enum BlockSize {
 impl BlockSize {
     fn header_size(&self) -> usize {
         match self {
-            Self::Byte4K => size_of::<MemoryBlockHeader>() * 1,
-            Self::Byte8K => size_of::<MemoryBlockHeader>() * 2,
-            Self::Byte16K => size_of::<MemoryBlockHeader>() * 4,
-            Self::Byte32K => size_of::<MemoryBlockHeader>() * 8,
-            Self::Byte64K => size_of::<MemoryBlockHeader>() * 16,
-            Self::Byte128K => size_of::<MemoryBlockHeader>() * 32,
-            Self::Byte256K => size_of::<MemoryBlockHeader>() * 64,
-            Self::Byte512K => size_of::<MemoryBlockHeader>() * 128,
-            Self::Byte1024K => size_of::<MemoryBlockHeader>() * 256,
+            Self::Byte4K => size_of::<FreeMemoryBlock>() * 1,
+            Self::Byte8K => size_of::<FreeMemoryBlock>() * 2,
+            Self::Byte16K => size_of::<FreeMemoryBlock>() * 4,
+            Self::Byte32K => size_of::<FreeMemoryBlock>() * 8,
+            Self::Byte64K => size_of::<FreeMemoryBlock>() * 16,
+            Self::Byte128K => size_of::<FreeMemoryBlock>() * 32,
+            Self::Byte256K => size_of::<FreeMemoryBlock>() * 64,
+            Self::Byte512K => size_of::<FreeMemoryBlock>() * 128,
+            Self::Byte1024K => size_of::<FreeMemoryBlock>() * 256,
         }
     }
 
@@ -65,64 +66,6 @@ enum MemoryBlockType {
     SecondChild,
     /// No parent. (root)
     Orphan,
-}
-
-/// Header of memory block
-struct MemoryBlockHeader {
-    /// Is memory block used?
-    is_used: bool,
-    /// Memory block size.
-    size: BlockSize,
-    /// Next empty node of linked list.
-    next: Option<&'static mut Self>,
-    /// Parent address
-    kind: MemoryBlockType,
-}
-
-impl MemoryBlockHeader {
-    pub fn new(size: BlockSize) -> Self {
-        MemoryBlockHeader {
-            is_used: false,
-            size,
-            next: None,
-            kind: MemoryBlockType::Orphan,
-        }
-    }
-
-    pub fn get_buddy(&mut self) -> &'static mut Self {
-        match self.kind {
-            MemoryBlockType::FirstChild => unsafe {
-                &mut *(self as *mut Self).byte_add(size_of::<Self>())
-            },
-            MemoryBlockType::SecondChild => unsafe {
-                &mut *(self as *mut Self).byte_sub(size_of::<Self>())
-            },
-            MemoryBlockType::Orphan => panic!("Orphan does not have buddy"),
-        }
-    }
-
-    pub fn try_merge(&mut self) -> Option<&'static mut Self> {
-        assert!(!self.is_used);
-        match self.kind {
-            MemoryBlockType::FirstChild => {
-                let buddy = self.get_buddy();
-                if buddy.is_used {
-                    None
-                } else {
-                    unsafe { Some(&mut *(self as *mut Self)) }
-                }
-            }
-            MemoryBlockType::SecondChild => {
-                let buddy = self.get_buddy();
-                if buddy.is_used {
-                    None
-                } else {
-                    unsafe { Some(&mut *(buddy as *mut Self)) }
-                }
-            }
-            MemoryBlockType::Orphan => None,
-        }
-    }
 }
 
 pub struct BuddySystem {
@@ -207,9 +150,7 @@ impl BuddySystem {
         };
 
         match corresponding_list.pop() {
-            Some(ptr) => unsafe {
-                (ptr as *mut MemoryBlockHeader).byte_add(size_of::<MemoryBlockHeader>()) as *mut u8
-            },
+            Some(ptr) => ptr as *mut FreeMemoryBlock as *mut u8,
             None => self.split_request(corrensponding_block_size),
         }
     }
@@ -235,10 +176,9 @@ impl BuddySystem {
         };
 
         // merge child block and move doubled block to corresponding list
-        let body_addr = ptr as usize;
-        let mut header_ptr = (body_addr - size_of::<MemoryBlockHeader>()) as *mut MemoryBlockHeader;
-        while let Some(merged) = corresponding_list.append(&mut *header_ptr) {
-            header_ptr = merged;
+        let mut block_ptr = ptr as *mut FreeMemoryBlock;
+        while let Some(merged) = corresponding_list.append(&mut *block_ptr) {
+            block_ptr = merged;
             corresponding_list = match corresponding_block_size {
                 BlockSize::Byte4K => &mut self.block_8k_bytes,
                 BlockSize::Byte8K => &mut self.block_16k_bytes,
