@@ -56,7 +56,7 @@ impl BlockSize {
             Self::Byte128K => BlockSize::Byte64K,
             Self::Byte256K => BlockSize::Byte128K,
             Self::Byte512K => BlockSize::Byte256K,
-            Self::Byte1024K =>BlockSize::Byte512K,  
+            Self::Byte1024K => BlockSize::Byte512K,
         }
     }
 
@@ -241,24 +241,70 @@ impl BuddySystem {
         new_lists
     }
 
+    fn split_request(&mut self, corresponding_block_size: BlockSize) -> *mut u8 {
+        assert!(matches!(corresponding_block_size, BlockSize::Byte1024K));
+        let bigger_block_size = corresponding_block_size.bigger();
+        let bigger_list = match bigger_block_size {
+            BlockSize::Byte4K => &mut self.block_4k_bytes,
+            BlockSize::Byte8K => &mut self.block_8k_bytes,
+            BlockSize::Byte16K => &mut self.block_16k_bytes,
+            BlockSize::Byte32K => &mut self.block_32k_bytes,
+            BlockSize::Byte64K => &mut self.block_64k_bytes,
+            BlockSize::Byte128K => &mut self.block_128k_bytes,
+            BlockSize::Byte256K => &mut self.block_256k_bytes,
+            BlockSize::Byte512K => &mut self.block_512k_bytes,
+            BlockSize::Byte1024K => &mut self.block_1024k_bytes,
+        };
+
+        match bigger_list.pop() {
+            Some(parent) => {
+                let (first_child, second_child) = parent.split();
+                let (first_child, second_child) = (
+                    first_child as *mut FreeMemoryBlock,
+                    second_child as *mut FreeMemoryBlock,
+                );
+                unsafe {
+                    *first_child = FreeMemoryBlock::new(corresponding_block_size);
+                    *second_child = FreeMemoryBlock::new(corresponding_block_size);
+
+                    let corresponding_list = match corresponding_block_size {
+                        BlockSize::Byte4K => &mut self.block_4k_bytes,
+                        BlockSize::Byte8K => &mut self.block_8k_bytes,
+                        BlockSize::Byte16K => &mut self.block_16k_bytes,
+                        BlockSize::Byte32K => &mut self.block_32k_bytes,
+                        BlockSize::Byte64K => &mut self.block_64k_bytes,
+                        BlockSize::Byte128K => &mut self.block_128k_bytes,
+                        BlockSize::Byte256K => &mut self.block_256k_bytes,
+                        BlockSize::Byte512K => &mut self.block_512k_bytes,
+                        BlockSize::Byte1024K => &mut self.block_1024k_bytes,
+                    };
+                    corresponding_list.append(&mut *first_child);
+                }
+
+                first_child as *mut u8
+            }
+            None => self.split_request(bigger_block_size),
+        }
+    }
+
     /// Allocates a new memory block.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
         let corresponding_block_size = Self::get_memory_block_size(&layout);
-        let corresponding_list = match corresponding_block_size {
-            BlockSize::Byte4K => self.block_4k_bytes,
-            BlockSize::Byte8K => self.block_8k_bytes,
-            BlockSize::Byte16K => self.block_16k_bytes,
-            BlockSize::Byte32K => self.block_32k_bytes,
-            BlockSize::Byte64K => self.block_64k_bytes,
-            BlockSize::Byte128K => self.block_128k_bytes,
-            BlockSize::Byte256K => self.block_256k_bytes,
-            BlockSize::Byte512K => self.block_512k_bytes,
-            BlockSize::Byte1024K => self.block_1024k_bytes,
+        let corresponding_block_list = match corresponding_block_size {
+            BlockSize::Byte4K => &mut self.block_4k_bytes,
+            BlockSize::Byte8K => &mut self.block_8k_bytes,
+            BlockSize::Byte16K => &mut self.block_16k_bytes,
+            BlockSize::Byte32K => &mut self.block_32k_bytes,
+            BlockSize::Byte64K => &mut self.block_64k_bytes,
+            BlockSize::Byte128K => &mut self.block_128k_bytes,
+            BlockSize::Byte256K => &mut self.block_256k_bytes,
+            BlockSize::Byte512K => &mut self.block_512k_bytes,
+            BlockSize::Byte1024K => &mut self.block_1024k_bytes,
         };
 
-        match corresponding_list.pop() {
-            Some(ptr) => ptr as *mut FreeMemoryBlock as *mut u8,
-            None => self.split_request(corrensponding_block_size),
+        match corresponding_block_list.pop() {
+            Some(refer) => refer as *mut FreeMemoryBlock as *mut u8,
+            None => self.split_request(corresponding_block_size),
         }
     }
 
