@@ -55,6 +55,23 @@ impl BlockSize {
             Self::Byte1024K => panic!("Byte1024K is max size block"),
         }
     }
+
+    /// Return log 2 of self
+    pub fn log2(&self) -> usize {
+        match self {
+            Self::Byte4K => 12,
+            Self::Byte8K => 13,
+            Self::Byte16K => 14,
+            Self::Byte32K => 15,
+            Self::Byte64K => 16,
+            Self::Byte128K => 17,
+            Self::Byte256K => 18,
+            Self::Byte512K => 19,
+            Self::Byte1024K => 20,
+        }
+    }
+}
+
 }
 
 pub struct BuddySystem {
