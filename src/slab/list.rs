@@ -1,6 +1,6 @@
 //! Implementation for linked list of Slab
 
-use super::{ObjectSize, Slab};
+use super::{FreeObject, ObjectSize, Slab};
 use crate::buddy;
 
 use alloc::sync::Arc;
@@ -109,8 +109,23 @@ impl PartialList {
         self.0.pop_slab()
     }
 
+    /// Return pointer of list head.
     pub fn head_ptr(&mut self) -> Option<*mut Slab> {
         self.0.head.as_mut().map(|slab| *slab as *mut Slab)
+    }
+
+    /// Search slab that contains given free object.
+    pub fn corresponding_slab_ptr(&mut self, obj_ptr: *const FreeObject) -> Option<*mut Slab> {
+        let mut next_slab = self.0.head.take();
+        while let Some(slab) = next_slab {
+            if slab.is_contain(obj_ptr) {
+                return Some(slab as *mut Slab);
+            } else {
+                next_slab = slab.next.take();
+            }
+        }
+
+        None
     }
 }
 
@@ -130,5 +145,19 @@ impl FullList {
     /// Pop free object.
     pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.0.pop_slab()
+    }
+
+    /// Search slab that contains given free object.
+    pub fn corresponding_slab_ptr(&mut self, obj_ptr: *const FreeObject) -> Option<*mut Slab> {
+        let mut next_slab = self.0.head.take();
+        while let Some(slab) = next_slab {
+            if slab.is_contain(obj_ptr) {
+                return Some(slab as *mut Slab);
+            } else {
+                next_slab = slab.next.take();
+            }
+        }
+
+        None
     }
 }
