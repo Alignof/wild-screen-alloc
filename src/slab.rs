@@ -118,53 +118,20 @@ enum SlabKind {
     Empty,
 }
 
-/// Linked lists for free slab management.
+/// Cache that contains slab lists.
 ///
 /// It has three lists to match `SlabKind`.  
 /// Allocator normally use partial, but it use empty list and move one to partial when partial is empty.
 /// Note that only "empty" is used temporarily now. (TODO!)
-struct SlabLists {
-    full: list::List,
-    partial: list::List,
-    empty: list::List,
-}
-
-impl SlabLists {
-    /// Create new slab lists.
-    pub unsafe fn new(
-        object_size: ObjectSize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
-    ) -> Self {
-        SlabLists {
-            full: list::List::new_empty(page_allocator.clone()),
-            partial: list::List::new_empty(page_allocator.clone()),
-            empty: list::List::new(
-                object_size,
-                constants::DEFAULT_SLAB_NUM,
-                page_allocator.clone(),
-            ),
-        }
-    }
-
-    /// Get free object from partial
-    fn pop_from_partial(&mut self) -> Option<&'static mut FreeObject> {
-        // TODO
-        self.partial.head.as_mut().unwrap().pop()
-    }
-
-    /// Get free object from empty
-    fn pop_from_empty(&mut self) -> Option<&'static mut FreeObject> {
-        // TODO
-        self.empty.head.as_mut().unwrap().pop()
-    }
-}
-
-/// Cache that contains slab lists.
 pub struct Cache {
     /// Size of object. (e.g. 64byte, 128byte)
     _object_size: ObjectSize,
-    /// slab's linked list
-    slab_lists: SlabLists,
+    /// All objects are allocated.
+    full: list::List,
+    /// Some objects are allocated.
+    partial: list::List,
+    /// None of objects are allocated.
+    empty: list::List,
 }
 
 impl Cache {
@@ -175,15 +142,39 @@ impl Cache {
     ) -> Self {
         Cache {
             _object_size: object_size,
-            slab_lists: SlabLists::new(object_size, page_allocator),
+            full: list::List::new_empty(page_allocator.clone()),
+            partial: list::List::new_empty(page_allocator.clone()),
+            empty: list::List::new(
+                object_size,
+                constants::DEFAULT_SLAB_NUM,
+                page_allocator.clone(),
+            ),
         }
+    }
+
+    /// Store free object to partial
+    fn push_to_partial(&mut self, free_obj_ref: &'static mut FreeObject) {
+        // TODO
+        self.partial.head.as_mut().unwrap().push(free_obj_ref)
+    }
+
+    /// Get free object from partial
+    fn pop_from_partial(&mut self) -> Option<&'static mut FreeObject> {
+        // TODO migrate to Full
+        self.partial.head.as_mut().unwrap().pop()
+    }
+
+    /// Get free object from empty
+    fn pop_from_empty(&mut self) -> Option<&'static mut FreeObject> {
+        // TODO migrate to partial
+        self.empty.head.as_mut().unwrap().pop()
     }
 
     /// Return object address according to `layout.size`.
     pub fn allocate(&mut self) -> *mut u8 {
-        match self.slab_lists.pop_from_partial() {
+        match self.pop_from_partial() {
             Some(object) => object.addr() as *mut u8,
-            None => match self.slab_lists.pop_from_empty() {
+            None => match self.pop_from_empty() {
                 Some(object) => object.addr() as *mut u8,
                 None => core::ptr::null_mut(),
             },
@@ -194,8 +185,7 @@ impl Cache {
     pub fn deallocate(&mut self, ptr: *mut u8) {
         let ptr = ptr.cast::<FreeObject>();
         unsafe {
-            // TODO
-            self.slab_lists.empty.head.as_mut().unwrap().push(&mut *ptr);
+            self.push_to_partial(&mut *ptr);
         }
     }
 }
