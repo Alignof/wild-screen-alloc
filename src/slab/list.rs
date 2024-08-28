@@ -1,6 +1,6 @@
 //! Implementation for linked list of Slab
 
-use super::{ObjectSize, Slab};
+use super::{FreeObject, ObjectSize, Slab};
 use crate::buddy;
 
 use alloc::sync::Arc;
@@ -53,5 +53,15 @@ impl List {
         new_node.next = self.head.take();
         self.len += 1;
         self.head = Some(new_node);
+    }
+
+    /// Pop free object from list of head
+    pub fn pop_object(&mut self) -> Option<&'static mut FreeObject> {
+        self.head.as_mut().expect("Slab list is empty").pop()
+    }
+
+    /// Push deallocated object to corresponding `Slab`
+    pub fn push_object(&mut self, obj: &'static mut FreeObject) {
+        self.head.as_mut().unwrap().push(obj);
     }
 }
