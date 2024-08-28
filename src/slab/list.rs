@@ -108,6 +108,10 @@ impl PartialList {
     pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.0.pop_slab()
     }
+
+    pub fn head_ptr(&mut self) -> Option<*mut Slab> {
+        self.0.head.as_mut().map(|slab| *slab as *mut Slab)
+    }
 }
 
 pub struct FullList(List);
