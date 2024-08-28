@@ -135,9 +135,12 @@ unsafe impl GlobalAlloc for WildScreenAlloc {
 
 #[cfg(test)]
 mod alloc_tests {
-    use crate::{constants, SlabAllocator};
+    use crate::{buddy::BuddySystem, constants, slab::SlabAllocator};
     use alloc::alloc::Layout;
+    use alloc::rc::Rc;
+    use core::cell::OnceCell;
     use core::mem::{align_of, size_of};
+    use spin::Mutex;
 
     const HEAP_SIZE: usize = 16 * constants::PAGE_SIZE;
     #[repr(align(4096))]
@@ -146,13 +149,23 @@ mod alloc_tests {
     }
 
     #[test]
-    fn create_allocator() {
+    fn create_allocator_test() {
         let dummy_heap = DummyHeap {
             heap_space: [0_u8; HEAP_SIZE],
         };
 
         unsafe {
-            let _ = SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
+            let buddy_cell = OnceCell::new();
+            buddy_cell.get_or_init(|| {
+                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
+            });
+
+            let buddy_system = Rc::new(Mutex::new(buddy_cell));
+            let _ = SlabAllocator::new(
+                &dummy_heap.heap_space as *const u8 as usize,
+                HEAP_SIZE,
+                buddy_system.clone(),
+            );
         }
     }
 
@@ -164,13 +177,29 @@ mod alloc_tests {
         let size = size_of::<usize>() * 2;
         let layout = Layout::from_size_align(size, align_of::<usize>());
 
-        unsafe {
-            let mut allocator =
-                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
-            let addr = allocator.allocate(layout.clone().unwrap());
-            assert!(!addr.is_null());
+        let (_buddy_system, mut slab_allocator) = {
+            let buddy_cell = OnceCell::new();
+            buddy_cell.get_or_init(|| unsafe {
+                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
+            });
 
-            allocator.deallocate(addr, layout.unwrap());
+            let buddy_system = Rc::new(Mutex::new(buddy_cell));
+            let slab_allocator = unsafe {
+                SlabAllocator::new(
+                    &dummy_heap.heap_space as *const u8 as usize,
+                    HEAP_SIZE,
+                    buddy_system.clone(),
+                )
+            };
+
+            (buddy_system, slab_allocator)
+        };
+
+        let addr = slab_allocator.allocate(layout.clone().unwrap());
+        assert!(!addr.is_null());
+
+        unsafe {
+            slab_allocator.deallocate(addr, layout.unwrap());
         }
     }
 
@@ -182,13 +211,37 @@ mod alloc_tests {
         let size = 4096;
         let layout = Layout::from_size_align(size, align_of::<usize>());
 
-        unsafe {
-            let mut allocator =
-                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
-            let addr = allocator.allocate(layout.clone().unwrap());
-            assert!(!addr.is_null());
+        let (buddy_system, _slab_allocator) = {
+            let buddy_cell = OnceCell::new();
+            buddy_cell.get_or_init(|| unsafe {
+                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
+            });
 
-            allocator.deallocate(addr, layout.unwrap());
+            let buddy_system = Rc::new(Mutex::new(buddy_cell));
+            let slab_allocator = unsafe {
+                SlabAllocator::new(
+                    &dummy_heap.heap_space as *const u8 as usize,
+                    HEAP_SIZE,
+                    buddy_system.clone(),
+                )
+            };
+
+            (buddy_system, slab_allocator)
+        };
+
+        let addr = buddy_system
+            .lock()
+            .get_mut()
+            .unwrap()
+            .allocate(layout.clone().unwrap());
+        assert!(!addr.is_null());
+
+        unsafe {
+            buddy_system
+                .lock()
+                .get_mut()
+                .unwrap()
+                .deallocate(addr, layout.unwrap());
         }
     }
 
@@ -200,13 +253,37 @@ mod alloc_tests {
         let size = 4104;
         let layout = Layout::from_size_align(size, align_of::<usize>());
 
-        unsafe {
-            let mut allocator =
-                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
-            let addr = allocator.allocate(layout.clone().unwrap());
-            assert!(!addr.is_null());
+        let (buddy_system, _slab_allocator) = {
+            let buddy_cell = OnceCell::new();
+            buddy_cell.get_or_init(|| unsafe {
+                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
+            });
 
-            allocator.deallocate(addr, layout.unwrap());
+            let buddy_system = Rc::new(Mutex::new(buddy_cell));
+            let slab_allocator = unsafe {
+                SlabAllocator::new(
+                    &dummy_heap.heap_space as *const u8 as usize,
+                    HEAP_SIZE,
+                    buddy_system.clone(),
+                )
+            };
+
+            (buddy_system, slab_allocator)
+        };
+
+        let addr = buddy_system
+            .lock()
+            .get_mut()
+            .unwrap()
+            .allocate(layout.clone().unwrap());
+        assert!(!addr.is_null());
+
+        unsafe {
+            buddy_system
+                .lock()
+                .get_mut()
+                .unwrap()
+                .deallocate(addr, layout.unwrap());
         }
     }
 
@@ -218,13 +295,37 @@ mod alloc_tests {
         let size = 8096;
         let layout = Layout::from_size_align(size, align_of::<usize>());
 
-        unsafe {
-            let mut allocator =
-                SlabAllocator::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE);
-            let addr = allocator.allocate(layout.clone().unwrap());
-            assert!(!addr.is_null());
+        let (buddy_system, _slab_allocator) = {
+            let buddy_cell = OnceCell::new();
+            buddy_cell.get_or_init(|| unsafe {
+                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
+            });
 
-            allocator.deallocate(addr, layout.unwrap());
+            let buddy_system = Rc::new(Mutex::new(buddy_cell));
+            let slab_allocator = unsafe {
+                SlabAllocator::new(
+                    &dummy_heap.heap_space as *const u8 as usize,
+                    HEAP_SIZE,
+                    buddy_system.clone(),
+                )
+            };
+
+            (buddy_system, slab_allocator)
+        };
+
+        let addr = buddy_system
+            .lock()
+            .get_mut()
+            .unwrap()
+            .allocate(layout.clone().unwrap());
+        assert!(!addr.is_null());
+
+        unsafe {
+            buddy_system
+                .lock()
+                .get_mut()
+                .unwrap()
+                .deallocate(addr, layout.unwrap());
         }
     }
 }
