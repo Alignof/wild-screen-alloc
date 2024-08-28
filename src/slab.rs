@@ -168,16 +168,20 @@ impl Cache {
 
     /// Return object address according to `layout.size`.
     pub fn allocate(&mut self) -> *mut u8 {
-        match self.partial.pop_object() {
-            Some(obj) => obj as *mut FreeObject as *mut u8,
+        match self.partial.head_ptr() {
+            Some(slab) => unsafe {
+                match (*slab).pop() {
+                    Some(obj) => obj as *mut FreeObject as *mut u8,
+                    None => {
+                        self.full.push_slab(&mut *slab);
+                        self.allocate() // retry
+                    }
+                }
+            },
             None => {
-                let obj = self
-                    .empty
-                    .pop_object()
-                    .expect("Empty List failed to allocate new node")
-                    as *mut FreeObject as *mut u8;
-
-                obj
+                // get empty list
+                self.partial.0.head = self.empty.pop_slab();
+                self.allocate() // retry
             }
         }
     }
@@ -185,9 +189,6 @@ impl Cache {
     /// Free object according to `layout.size`.
     pub fn deallocate(&mut self, ptr: *mut u8) {
         let ptr = ptr.cast::<FreeObject>();
-        unsafe {
-            self.partial.push_object(&mut *ptr);
-        }
     }
 }
 

@@ -1,6 +1,6 @@
 //! Implementation for linked list of Slab
 
-use super::{FreeObject, ObjectSize, Slab};
+use super::{ObjectSize, Slab};
 use crate::buddy;
 
 use alloc::sync::Arc;
