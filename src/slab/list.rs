@@ -63,14 +63,23 @@ impl EmptyList {
         self.0.len += 1;
         self.0.head = Some(new_node);
     }
+}
+
+pub struct PartialList(List);
+
+impl PartialList {
+    /// Return with empty list.
+    pub fn new_empty() -> Self {
+        PartialList(List::new_empty())
+    }
 
     /// Pop free object from list of head
     pub fn pop_object(&mut self) -> Option<&'static mut FreeObject> {
-        self.head.as_mut().expect("Slab list is empty").pop()
+        self.0.head.as_mut().expect("Slab list is empty").pop()
     }
 
     /// Push deallocated object to corresponding `Slab`
     pub fn push_object(&mut self, obj: &'static mut FreeObject) {
-        self.head.as_mut().unwrap().push(obj);
+        self.0.head.as_mut().unwrap().push(obj);
     }
 }
