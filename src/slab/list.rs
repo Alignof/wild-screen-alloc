@@ -67,19 +67,6 @@ impl EmptyList {
         EmptyList(List::new_empty())
     }
 
-    /// Create new node and append to list.
-    pub fn append_new_node(
-        &mut self,
-        obj_size: ObjectSize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
-    ) {
-        let new_page_addr = page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
-        let new_node = unsafe { Slab::new(obj_size, new_page_addr) };
-        new_node.next = self.0.head.take();
-        self.0.len += 1;
-        self.0.head = Some(new_node);
-    }
-
     /// Push new `Slab`
     pub fn push_slab(&mut self, slab: &'static mut Slab) {
         self.0.push_slab(slab);
