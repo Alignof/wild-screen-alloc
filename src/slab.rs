@@ -166,32 +166,19 @@ impl Cache {
         }
     }
 
-    /// Store free object to partial
-    fn push_to_partial(&mut self, free_obj_ref: &'static mut FreeObject) {
-        // TODO
-        self.partial.head.as_mut().unwrap().push(free_obj_ref)
-    }
-
-    /// Get free object from partial
-    fn pop_from_partial(&mut self) -> Option<&'static mut FreeObject> {
-        // TODO migrate to Full
-        self.partial.head.as_mut().unwrap().pop()
-    }
-
-    /// Get free object from empty
-    fn pop_from_empty(&mut self) -> Option<&'static mut FreeObject> {
-        // TODO migrate to partial
-        self.empty.head.as_mut().unwrap().pop()
-    }
-
     /// Return object address according to `layout.size`.
     pub fn allocate(&mut self) -> *mut u8 {
-        match self.pop_from_partial() {
-            Some(object) => object.addr() as *mut u8,
-            None => match self.pop_from_empty() {
-                Some(object) => object.addr() as *mut u8,
-                None => core::ptr::null_mut(),
-            },
+        match self.partial.pop_object() {
+            Some(obj) => obj as *mut FreeObject as *mut u8,
+            None => {
+                let obj = self
+                    .empty
+                    .pop_object()
+                    .expect("Empty List failed to allocate new node")
+                    as *mut FreeObject as *mut u8;
+
+                obj
+            }
         }
     }
 
@@ -199,7 +186,7 @@ impl Cache {
     pub fn deallocate(&mut self, ptr: *mut u8) {
         let ptr = ptr.cast::<FreeObject>();
         unsafe {
-            self.push_to_partial(&mut *ptr);
+            self.partial.push_object(&mut *ptr);
         }
     }
 }
