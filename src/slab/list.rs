@@ -67,14 +67,24 @@ impl EmptyList {
         EmptyList(List::new_empty())
     }
 
-    /// Push new `Slab`
+    /// Push new `Slab` to list.
     pub fn push_slab(&mut self, slab: &'static mut Slab) {
         self.0.push_slab(slab);
     }
 
-    /// Pop `Slab`.
-    pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
-        self.0.pop_slab()
+    /// Pop `Slab` from list.
+    ///
+    /// If list is empty, new Slab allocate from new page.
+    pub fn pop_slab(
+        &mut self,
+        obj_size: ObjectSize,
+        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    ) -> &'static mut Slab {
+        self.0.pop_slab().unwrap_or_else(|| {
+            let new_page_addr =
+                page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
+            unsafe { Slab::new(obj_size, new_page_addr) }
+        })
     }
 }
 
@@ -86,12 +96,12 @@ impl PartialList {
         PartialList(List::new_empty())
     }
 
-    /// Push new `Slab`
+    /// Push new `Slab` to list.
     pub fn push_slab(&mut self, slab: &'static mut Slab) {
         self.0.push_slab(slab);
     }
 
-    /// Pop `Slab`.
+    /// Pop `Slab` from list.
     pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.0.pop_slab()
     }
@@ -127,12 +137,12 @@ impl FullList {
         FullList(List::new_empty())
     }
 
-    /// Push new `Slab`
+    /// Push new `Slab` to list.
     pub fn push_slab(&mut self, slab: &'static mut Slab) {
         self.0.push_slab(slab);
     }
 
-    /// Pop `Slab`.
+    /// Pop `Slab` from list.
     pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.0.pop_slab()
     }
