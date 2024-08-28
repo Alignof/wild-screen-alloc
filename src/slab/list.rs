@@ -33,6 +33,22 @@ impl List {
     pub fn new_empty() -> Self {
         List { len: 0, head: None }
     }
+
+    /// Push new free object.
+    fn push_slab(&mut self, slab: &'static mut Slab) {
+        slab.next = self.head.take();
+        self.len += 1;
+        self.head = Some(slab);
+    }
+
+    /// Pop free object.
+    fn pop_slab(&mut self) -> Option<&'static mut Slab> {
+        self.head.take().map(|slab| {
+            self.head = slab.next.take();
+            self.len -= 1;
+            slab
+        })
+    }
 }
 
 pub struct EmptyList(List);

@@ -106,10 +106,10 @@ impl Slab {
     }
 
     /// Push new free object.
-    fn push(&mut self, slab: &'static mut FreeObject) {
-        slab.next = self.free_obj_head.take();
+    fn push(&mut self, obj: &'static mut FreeObject) {
+        obj.next = self.free_obj_head.take();
         self.used_bytes += self.obj_size as usize;
-        self.free_obj_head = Some(slab);
+        self.free_obj_head = Some(obj);
     }
 
     /// Pop free object.
