@@ -120,6 +120,13 @@ impl Slab {
             node
         })
     }
+
+    fn is_contain(&self, obj_ptr: *const FreeObject) -> bool {
+        let slab_start = self as *const Self as usize;
+        let slab_end = unsafe { (self as *const Self).byte_add(constants::PAGE_SIZE) as usize };
+
+        (slab_start..slab_end).contains(&(obj_ptr as usize))
+    }
 }
 
 /// Type of Slab
