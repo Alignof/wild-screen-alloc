@@ -200,14 +200,19 @@ impl Cache {
                     Some(obj) => obj as *mut FreeObject as *mut u8,
                     None => {
                         // partial -> full
-                        self.slab_migrate(partial_slab_ptr, SlabKind::Full);
+                        let full_slab = self.partial.pop_slab().unwrap();
+                        self.slab_migrate(full_slab, SlabKind::Full);
+
                         self.allocate() // retry
                     }
                 }
             },
             None => {
                 // empty -> partial
-                self.partial.0.head = self.empty.pop_slab();
+                let empty_slab = self
+                    .empty
+                    .pop_slab(self.object_size, self.page_allocator.clone());
+                self.slab_migrate(empty_slab, SlabKind::Full);
                 self.allocate() // retry
             }
         }
@@ -217,21 +222,24 @@ impl Cache {
     pub fn deallocate(&mut self, ptr: *mut u8) {
         let obj_ptr = ptr.cast::<FreeObject>();
 
-        match self.partial.corresponding_slab_ptr(obj_ptr) {
-            Some(partial_slab_ptr) => unsafe {
-                (*partial_slab_ptr).push(&mut *obj_ptr);
+        match self.partial.pop_corresponding_slab(obj_ptr) {
+            Some(partial_slab) => unsafe {
+                partial_slab.push(&mut *obj_ptr);
 
-                if (*partial_slab_ptr).used_bytes == 0 {
+                if partial_slab.used_bytes == 0 {
                     // partial -> empty
-                    self.slab_migrate(partial_slab_ptr, SlabKind::Empty);
+                    self.slab_migrate(partial_slab, SlabKind::Empty);
+                } else {
+                    // push back poped slab.
+                    self.partial.push_slab(partial_slab);
                 }
             },
-            None => match self.full.corresponding_slab_ptr(obj_ptr) {
-                Some(full_slab_ptr) => unsafe {
-                    (*full_slab_ptr).push(&mut *obj_ptr);
+            None => match self.full.pop_corresponding_slab(obj_ptr) {
+                Some(full_slab) => unsafe {
+                    full_slab.push(&mut *obj_ptr);
 
                     // full -> partial
-                    self.slab_migrate(full_slab_ptr, SlabKind::Partial);
+                    self.slab_migrate(full_slab, SlabKind::Partial);
                 },
                 None => panic!("corresponding slab is not found"),
             },
