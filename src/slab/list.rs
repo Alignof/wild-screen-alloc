@@ -101,12 +101,15 @@ impl PartialList {
         self.0.head.as_mut().map(|slab| *slab as *mut Slab)
     }
 
-    /// Search slab that contains given free object.
-    pub fn corresponding_slab_ptr(&mut self, obj_ptr: *const FreeObject) -> Option<*mut Slab> {
+    /// Search and pop slab that contains given free object.
+    pub fn pop_corresponding_slab(
+        &mut self,
+        obj_ptr: *const FreeObject,
+    ) -> Option<&'static mut Slab> {
         let mut next_slab = self.0.head.take();
         while let Some(slab) = next_slab {
             if slab.is_contain(obj_ptr) {
-                return Some(slab as *mut Slab);
+                return Some(slab);
             } else {
                 next_slab = slab.next.take();
             }
@@ -116,7 +119,7 @@ impl PartialList {
     }
 }
 
-pub struct FullList(pub List);
+pub struct FullList(List);
 
 impl FullList {
     /// Return with empty list.
@@ -134,12 +137,15 @@ impl FullList {
         self.0.pop_slab()
     }
 
-    /// Search slab that contains given free object.
-    pub fn corresponding_slab_ptr(&mut self, obj_ptr: *const FreeObject) -> Option<*mut Slab> {
+    /// Search and pop slab that contains given free object.
+    pub fn pop_corresponding_slab(
+        &mut self,
+        obj_ptr: *const FreeObject,
+    ) -> Option<&'static mut Slab> {
         let mut next_slab = self.0.head.take();
         while let Some(slab) = next_slab {
             if slab.is_contain(obj_ptr) {
-                return Some(slab as *mut Slab);
+                return Some(slab);
             } else {
                 next_slab = slab.next.take();
             }
