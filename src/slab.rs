@@ -145,7 +145,7 @@ pub struct Cache {
     /// Some objects are allocated.
     partial: list::List,
     /// None of objects are allocated.
-    empty: list::List,
+    empty: list::EmptyList,
 }
 
 impl Cache {
@@ -158,7 +158,7 @@ impl Cache {
             _object_size: object_size,
             full: list::List::new_empty(page_allocator.clone()),
             partial: list::List::new_empty(page_allocator.clone()),
-            empty: list::List::new(
+            empty: list::EmptyList::new(
                 object_size,
                 constants::DEFAULT_SLAB_NUM,
                 page_allocator.clone(),

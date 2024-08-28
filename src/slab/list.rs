@@ -11,8 +11,6 @@ use spin::Mutex;
 pub struct List {
     /// List length.
     len: usize,
-    /// Reference of `BuddySystem` for allocating Page
-    page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
     /// head of `Slab` linked list.
     pub head: Option<&'static mut Slab>,
 }
@@ -27,32 +25,43 @@ impl List {
         let new_page_addr = page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
         List {
             len: default_node_num,
-            page_allocator,
             head: unsafe { Some(Slab::new(obj_size, new_page_addr)) },
         }
     }
 
-    /// Return with empty head.
-    pub fn new_empty(page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>) -> Self {
-        List {
-            len: 0,
-            page_allocator,
-            head: None,
-        }
+    /// Return with empty list.
+    pub fn new_empty() -> Self {
+        List { len: 0, head: None }
+    }
+}
+
+pub struct EmptyList(List);
+
+impl EmptyList {
+    pub fn new(
+        obj_size: ObjectSize,
+        default_node_num: usize,
+        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    ) -> Self {
+        EmptyList(List::new(obj_size, default_node_num, page_allocator))
+    }
+
+    /// Return with empty list.
+    pub fn new_empty() -> Self {
+        EmptyList(List::new_empty())
     }
 
     /// Create new node and append to list.
-    pub fn append_new_node(&mut self, obj_size: ObjectSize) {
-        let new_page_addr = self
-            .page_allocator
-            .lock()
-            .get_mut()
-            .unwrap()
-            .page_allocate() as *mut Slab;
+    pub fn append_new_node(
+        &mut self,
+        obj_size: ObjectSize,
+        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    ) {
+        let new_page_addr = page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
         let new_node = unsafe { Slab::new(obj_size, new_page_addr) };
-        new_node.next = self.head.take();
-        self.len += 1;
-        self.head = Some(new_node);
+        new_node.next = self.0.head.take();
+        self.0.len += 1;
+        self.0.head = Some(new_node);
     }
 
     /// Pop free object from list of head
