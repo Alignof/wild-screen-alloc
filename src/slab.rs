@@ -141,7 +141,7 @@ pub struct Cache {
     /// Size of object. (e.g. 64byte, 128byte)
     _object_size: ObjectSize,
     /// All objects are allocated.
-    full: list::List,
+    full: list::FullList,
     /// Some objects are allocated.
     partial: list::PartialList,
     /// None of objects are allocated.
@@ -156,7 +156,7 @@ impl Cache {
     ) -> Self {
         Cache {
             _object_size: object_size,
-            full: list::List::new_empty(page_allocator.clone()),
+            full: list::FullList::new_empty(),
             partial: list::PartialList::new_empty(),
             empty: list::EmptyList::new(
                 object_size,

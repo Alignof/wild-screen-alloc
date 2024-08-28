@@ -83,3 +83,12 @@ impl PartialList {
         self.0.head.as_mut().unwrap().push(obj);
     }
 }
+
+pub struct FullList(List);
+
+impl FullList {
+    /// Return with empty list.
+    pub fn new_empty() -> Self {
+        FullList(List::new_empty())
+    }
+}
