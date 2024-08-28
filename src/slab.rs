@@ -40,6 +40,7 @@ impl FreeObject {
 }
 
 /// Slab (= 1 PAGE memory block)
+/// Node of `list::List`
 ///
 /// # Memory layout
 /// ```ignore
@@ -50,7 +51,7 @@ impl FreeObject {
 /// │                                    size_of::<Slab>()                     │
 /// │  0              ◄────────────────────────────────────────────────────►   │
 /// │  ┌─────────────┬────────┬────────────┬──────────────┬─────────────────┐  │
-/// │  │  Node.next  │  kind  │  obj_size  │  used_bytes  │  free_obj_head ─┼──┘
+/// │  │    next     │  kind  │  obj_size  │  used_bytes  │  free_obj_head ─┼──┘
 /// │  ├─────────────┼────────┴────┬───────┴─────┬────────┴───┬─────────────┤   
 /// └──┼► free_obj   │  free_obj   │  free_obj   │  free_obj  │  free_obj   │   
 ///    ├─────────────┼─────────────┼─────────────┼────────────┼─────────────┤   
@@ -60,9 +61,15 @@ impl FreeObject {
 /// ```
 #[repr(C)]
 struct Slab {
+    /// Slab kind.
     pub kind: SlabKind,
+    /// Managing object size.
     obj_size: ObjectSize,
+    /// Used size (unit: byte).
     used_bytes: usize,
+    /// Next node pointer
+    next: Option<&'static mut Self>,
+    /// Head pointer of linked free object list.
     free_obj_head: Option<&'static mut FreeObject>,
 }
 
@@ -73,22 +80,29 @@ impl Slab {
             kind,
             obj_size,
             used_bytes: 0,
+            next: None,
             free_obj_head: None,
         }
     }
 
     /// Initialize free objects list and return new `SlabHead`.
-    pub unsafe fn new(object_size: ObjectSize, free_obj_start_addr: usize) -> Self {
+    pub unsafe fn new(object_size: ObjectSize, allocated_page_ptr: *mut Self) -> &'static mut Self {
+        let free_obj_start_addr =
+            unsafe { allocated_page_ptr.byte_add(size_of::<Self>()) as usize };
         let num_of_object = (constants::PAGE_SIZE - size_of::<Slab>()) / object_size as usize;
         assert!(num_of_object > 0);
 
-        let mut new_list = Self::new_empty(SlabKind::Empty, object_size);
+        let new_slab = unsafe {
+            *allocated_page_ptr = Self::new_empty(SlabKind::Empty, object_size);
+            allocated_page_ptr
+        };
+
         for off in (0..num_of_object).rev() {
             let new_object = (free_obj_start_addr + off * object_size as usize) as *mut FreeObject;
-            new_list.push(&mut *new_object);
+            (*new_slab).push(&mut *new_object);
         }
 
-        new_list
+        unsafe { &mut *new_slab }
     }
 
     /// Push new free object.
