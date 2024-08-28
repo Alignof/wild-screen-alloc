@@ -7,7 +7,7 @@ mod buddy;
 mod slab;
 
 use alloc::alloc::{GlobalAlloc, Layout};
-use alloc::sync::Arc;
+use alloc::rc::Rc;
 use core::cell::OnceCell;
 use spin::Mutex;
 
@@ -23,7 +23,7 @@ mod constants {
 
 pub struct WildScreenAlloc {
     slab: Mutex<OnceCell<slab::SlabAllocator>>,
-    buddy: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    buddy: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
 }
 
 impl WildScreenAlloc {
@@ -40,7 +40,7 @@ impl WildScreenAlloc {
     pub fn empty() -> Self {
         WildScreenAlloc {
             slab: Mutex::new(OnceCell::new()),
-            buddy: Arc::new(Mutex::new(OnceCell::new())),
+            buddy: Rc::new(Mutex::new(OnceCell::new())),
         }
     }
 
@@ -79,7 +79,7 @@ impl WildScreenAlloc {
         new_buddy
             .set(buddy::BuddySystem::new(start_addr, heap_size))
             .unwrap_or_else(|_| panic!("BuddySystem initialization failed"));
-        let buddy = Arc::new(Mutex::new(new_buddy));
+        let buddy = Rc::new(Mutex::new(new_buddy));
 
         let new_slab = OnceCell::new();
         new_slab

@@ -3,7 +3,7 @@
 use super::{FreeObject, ObjectSize, Slab};
 use crate::buddy;
 
-use alloc::sync::Arc;
+use alloc::rc::Rc;
 use core::cell::OnceCell;
 use spin::Mutex;
 
@@ -20,7 +20,7 @@ impl List {
     pub fn new(
         obj_size: ObjectSize,
         default_node_num: usize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         let new_page_addr = page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
         List {
@@ -57,7 +57,7 @@ impl EmptyList {
     pub fn new(
         obj_size: ObjectSize,
         default_node_num: usize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         EmptyList(List::new(obj_size, default_node_num, page_allocator))
     }
@@ -78,7 +78,7 @@ impl EmptyList {
     pub fn pop_slab(
         &mut self,
         obj_size: ObjectSize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> &'static mut Slab {
         self.0.pop_slab().unwrap_or_else(|| {
             let new_page_addr =

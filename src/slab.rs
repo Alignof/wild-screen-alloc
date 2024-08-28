@@ -10,7 +10,7 @@ use super::constants;
 use crate::buddy;
 
 use alloc::alloc::Layout;
-use alloc::sync::Arc;
+use alloc::rc::Rc;
 use core::cell::OnceCell;
 use spin::Mutex;
 
@@ -142,7 +142,7 @@ pub struct Cache {
     /// Size of object. (e.g. 64byte, 128byte)
     object_size: ObjectSize,
     /// Page allocator for create new `Empty` node.
-    page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     /// All objects are allocated.
     full: list::FullList,
     /// Some objects are allocated.
@@ -155,7 +155,7 @@ impl Cache {
     /// Create new slab cache.
     pub unsafe fn new(
         object_size: ObjectSize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         let empty = list::EmptyList::new(
             object_size,
@@ -263,7 +263,7 @@ impl SlabAllocator {
     pub unsafe fn new(
         _start_addr: usize,
         _heap_size: usize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         SlabAllocator {
             slab_64_bytes: Cache::new(ObjectSize::Byte64, page_allocator.clone()),
