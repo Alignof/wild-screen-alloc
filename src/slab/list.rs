@@ -79,9 +79,19 @@ impl EmptyList {
         self.0.len += 1;
         self.0.head = Some(new_node);
     }
+
+    /// Push new free object.
+    pub fn push_slab(&mut self, slab: &'static mut Slab) {
+        self.0.push_slab(slab);
+    }
+
+    /// Pop free object.
+    pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
+        self.0.pop_slab()
+    }
 }
 
-pub struct PartialList(List);
+pub struct PartialList(pub List);
 
 impl PartialList {
     /// Return with empty list.
@@ -89,14 +99,14 @@ impl PartialList {
         PartialList(List::new_empty())
     }
 
-    /// Pop free object from list of head
-    pub fn pop_object(&mut self) -> Option<&'static mut FreeObject> {
-        self.0.head.as_mut().expect("Slab list is empty").pop()
+    /// Push new free object.
+    pub fn push_slab(&mut self, slab: &'static mut Slab) {
+        self.0.push_slab(slab);
     }
 
-    /// Push deallocated object to corresponding `Slab`
-    pub fn push_object(&mut self, obj: &'static mut FreeObject) {
-        self.0.head.as_mut().unwrap().push(obj);
+    /// Pop free object.
+    pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
+        self.0.pop_slab()
     }
 }
 
@@ -106,5 +116,15 @@ impl FullList {
     /// Return with empty list.
     pub fn new_empty() -> Self {
         FullList(List::new_empty())
+    }
+
+    /// Push new free object.
+    pub fn push_slab(&mut self, slab: &'static mut Slab) {
+        self.0.push_slab(slab);
+    }
+
+    /// Pop free object.
+    pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
+        self.0.pop_slab()
     }
 }
