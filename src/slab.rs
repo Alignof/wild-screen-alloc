@@ -147,7 +147,9 @@ enum SlabKind {
 /// Note that only "empty" is used temporarily now. (TODO!)
 pub struct Cache {
     /// Size of object. (e.g. 64byte, 128byte)
-    _object_size: ObjectSize,
+    object_size: ObjectSize,
+    /// Page allocator for create new `Empty` node.
+    page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
     /// All objects are allocated.
     full: list::FullList,
     /// Some objects are allocated.
@@ -162,32 +164,31 @@ impl Cache {
         object_size: ObjectSize,
         page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
+        let empty = list::EmptyList::new(
+            object_size,
+            constants::DEFAULT_SLAB_NUM,
+            page_allocator.clone(),
+        );
+
         Cache {
-            _object_size: object_size,
+            object_size,
+            page_allocator,
             full: list::FullList::new_empty(),
             partial: list::PartialList::new_empty(),
-            empty: list::EmptyList::new(
-                object_size,
-                constants::DEFAULT_SLAB_NUM,
-                page_allocator.clone(),
-            ),
+            empty,
         }
     }
 
     /// Move `Slab` to corresponding list.
-    fn slab_migrate(&mut self, slab_ptr: *mut Slab, dst_kind: SlabKind) {
+    fn slab_migrate(&mut self, slab_ref: &'static mut Slab, dst_kind: SlabKind) {
         // change slab kind
-        unsafe {
-            (*slab_ptr).kind = dst_kind;
-        }
+        slab_ref.kind = dst_kind;
 
         // append slab
-        unsafe {
-            match dst_kind {
-                SlabKind::Full => self.full.push_slab(&mut *slab_ptr),
-                SlabKind::Partial => self.partial.push_slab(&mut *slab_ptr),
-                SlabKind::Empty => self.empty.push_slab(&mut *slab_ptr),
-            }
+        match dst_kind {
+            SlabKind::Full => self.full.push_slab(slab_ref),
+            SlabKind::Partial => self.partial.push_slab(slab_ref),
+            SlabKind::Empty => self.empty.push_slab(slab_ref),
         }
     }
 
