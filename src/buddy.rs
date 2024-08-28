@@ -292,9 +292,10 @@ impl BuddySystem {
     /// Allocates a new page size memory block.
     /// It's for create slab's node.
     pub fn page_allocate(&mut self) -> *mut u8 {
-        self.block_4k_bytes
-            .pop()
-            .expect("[buddy system] memory full") as *mut FreeMemoryBlock as *mut u8
+        self.allocate(
+            Layout::from_size_align(BlockSize::Byte4K as usize, BlockSize::Byte4K as usize)
+                .unwrap(),
+        )
     }
 
     /// Deallocate(free) object.
