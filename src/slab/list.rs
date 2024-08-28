@@ -3,7 +3,7 @@
 use super::{FreeObject, ObjectSize, Slab};
 use crate::buddy;
 
-use alloc::sync::Arc;
+use alloc::rc::Rc;
 use core::cell::OnceCell;
 use spin::Mutex;
 
@@ -11,8 +11,6 @@ use spin::Mutex;
 pub struct List {
     /// List length.
     len: usize,
-    /// Reference of `BuddySystem` for allocating Page
-    page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
     /// head of `Slab` linked list.
     pub head: Option<&'static mut Slab>,
 }
@@ -22,46 +20,147 @@ impl List {
     pub fn new(
         obj_size: ObjectSize,
         default_node_num: usize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         let new_page_addr = page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
         List {
             len: default_node_num,
-            page_allocator,
             head: unsafe { Some(Slab::new(obj_size, new_page_addr)) },
         }
     }
 
-    /// Return with empty head.
-    pub fn new_empty(page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>) -> Self {
-        List {
-            len: 0,
-            page_allocator,
-            head: None,
-        }
+    /// Return with empty list.
+    pub fn new_empty() -> Self {
+        List { len: 0, head: None }
     }
 
-    /// Create new node and append to list.
-    pub fn append_new_node(&mut self, obj_size: ObjectSize) {
-        let new_page_addr = self
-            .page_allocator
-            .lock()
-            .get_mut()
-            .unwrap()
-            .page_allocate() as *mut Slab;
-        let new_node = unsafe { Slab::new(obj_size, new_page_addr) };
-        new_node.next = self.head.take();
+    /// Push new `Slab`
+    fn push_slab(&mut self, slab: &'static mut Slab) {
+        slab.next = self.head.take();
         self.len += 1;
-        self.head = Some(new_node);
+        self.head = Some(slab);
     }
 
-    /// Pop free object from list of head
-    pub fn pop_object(&mut self) -> Option<&'static mut FreeObject> {
-        self.head.as_mut().expect("Slab list is empty").pop()
+    /// Pop `Slab`.
+    fn pop_slab(&mut self) -> Option<&'static mut Slab> {
+        self.head.take().map(|slab| {
+            self.head = slab.next.take();
+            self.len -= 1;
+            slab
+        })
+    }
+}
+
+pub struct EmptyList(List);
+
+impl EmptyList {
+    pub fn new(
+        obj_size: ObjectSize,
+        default_node_num: usize,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    ) -> Self {
+        EmptyList(List::new(obj_size, default_node_num, page_allocator))
     }
 
-    /// Push deallocated object to corresponding `Slab`
-    pub fn push_object(&mut self, obj: &'static mut FreeObject) {
-        self.head.as_mut().unwrap().push(obj);
+    /// Return with empty list.
+    pub fn new_empty() -> Self {
+        EmptyList(List::new_empty())
+    }
+
+    /// Push new `Slab` to list.
+    pub fn push_slab(&mut self, slab: &'static mut Slab) {
+        self.0.push_slab(slab);
+    }
+
+    /// Pop `Slab` from list.
+    ///
+    /// If list is empty, new Slab allocate from new page.
+    pub fn pop_slab(
+        &mut self,
+        obj_size: ObjectSize,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    ) -> &'static mut Slab {
+        self.0.pop_slab().unwrap_or_else(|| {
+            let new_page_addr =
+                page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
+            unsafe { Slab::new(obj_size, new_page_addr) }
+        })
+    }
+}
+
+pub struct PartialList(pub List);
+
+impl PartialList {
+    /// Return with empty list.
+    pub fn new_empty() -> Self {
+        PartialList(List::new_empty())
+    }
+
+    /// Push new `Slab` to list.
+    pub fn push_slab(&mut self, slab: &'static mut Slab) {
+        self.0.push_slab(slab);
+    }
+
+    /// Pop `Slab` from list.
+    pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
+        self.0.pop_slab()
+    }
+
+    /// Return pointer of list head.
+    pub fn peek(&mut self) -> Option<*mut Slab> {
+        self.0.head.as_mut().map(|slab| *slab as *mut Slab)
+    }
+
+    /// Search and pop slab that contains given free object.
+    pub fn pop_corresponding_slab(
+        &mut self,
+        obj_ptr: *const FreeObject,
+    ) -> Option<&'static mut Slab> {
+        let mut next_slab = self.0.head.take();
+        while let Some(slab) = next_slab {
+            if slab.is_contain(obj_ptr) {
+                return Some(slab);
+            } else {
+                next_slab = slab.next.take();
+            }
+        }
+
+        None
+    }
+}
+
+pub struct FullList(List);
+
+impl FullList {
+    /// Return with empty list.
+    pub fn new_empty() -> Self {
+        FullList(List::new_empty())
+    }
+
+    /// Push new `Slab` to list.
+    pub fn push_slab(&mut self, slab: &'static mut Slab) {
+        self.0.push_slab(slab);
+    }
+
+    /// Pop `Slab` from list.
+    pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
+        self.0.pop_slab()
+    }
+
+    /// Search and pop slab that contains given free object.
+    pub fn pop_corresponding_slab(
+        &mut self,
+        obj_ptr: *const FreeObject,
+    ) -> Option<&'static mut Slab> {
+        let mut next_slab = self.0.head.take();
+        while let Some(slab) = next_slab {
+            if slab.is_contain(obj_ptr) {
+                return Some(slab);
+            } else {
+                next_slab = slab.next.take();
+            }
+        }
+
+        None
     }
 }

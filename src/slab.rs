@@ -10,7 +10,7 @@ use super::constants;
 use crate::buddy;
 
 use alloc::alloc::Layout;
-use alloc::sync::Arc;
+use alloc::rc::Rc;
 use core::cell::OnceCell;
 use spin::Mutex;
 
@@ -30,13 +30,6 @@ pub enum ObjectSize {
 /// This struct is placed unused heap space.
 struct FreeObject {
     next: Option<&'static mut Self>,
-}
-
-impl FreeObject {
-    /// Return address itself.
-    fn addr(&self) -> usize {
-        self as *const _ as usize
-    }
 }
 
 /// Slab (= 1 PAGE memory block)
@@ -106,10 +99,10 @@ impl Slab {
     }
 
     /// Push new free object.
-    fn push(&mut self, slab: &'static mut FreeObject) {
-        slab.next = self.free_obj_head.take();
+    fn push(&mut self, obj: &'static mut FreeObject) {
+        obj.next = self.free_obj_head.take();
         self.used_bytes += self.obj_size as usize;
-        self.free_obj_head = Some(slab);
+        self.free_obj_head = Some(obj);
     }
 
     /// Pop free object.
@@ -120,9 +113,17 @@ impl Slab {
             node
         })
     }
+
+    fn is_contain(&self, obj_ptr: *const FreeObject) -> bool {
+        let slab_start = self as *const Self as usize;
+        let slab_end = unsafe { (self as *const Self).byte_add(constants::PAGE_SIZE) as usize };
+
+        (slab_start..slab_end).contains(&(obj_ptr as usize))
+    }
 }
 
 /// Type of Slab
+#[derive(Copy, Clone)]
 enum SlabKind {
     /// All objects are allocated.
     Full,
@@ -139,54 +140,102 @@ enum SlabKind {
 /// Note that only "empty" is used temporarily now. (TODO!)
 pub struct Cache {
     /// Size of object. (e.g. 64byte, 128byte)
-    _object_size: ObjectSize,
+    object_size: ObjectSize,
+    /// Page allocator for create new `Empty` node.
+    page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     /// All objects are allocated.
-    full: list::List,
+    full: list::FullList,
     /// Some objects are allocated.
-    partial: list::List,
+    partial: list::PartialList,
     /// None of objects are allocated.
-    empty: list::List,
+    empty: list::EmptyList,
 }
 
 impl Cache {
     /// Create new slab cache.
     pub unsafe fn new(
         object_size: ObjectSize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
+        let empty = list::EmptyList::new(
+            object_size,
+            constants::DEFAULT_SLAB_NUM,
+            page_allocator.clone(),
+        );
+
         Cache {
-            _object_size: object_size,
-            full: list::List::new_empty(page_allocator.clone()),
-            partial: list::List::new_empty(page_allocator.clone()),
-            empty: list::List::new(
-                object_size,
-                constants::DEFAULT_SLAB_NUM,
-                page_allocator.clone(),
-            ),
+            object_size,
+            page_allocator,
+            full: list::FullList::new_empty(),
+            partial: list::PartialList::new_empty(),
+            empty,
+        }
+    }
+
+    /// Move `Slab` to corresponding list.
+    fn slab_migrate(&mut self, slab_ref: &'static mut Slab, dst_kind: SlabKind) {
+        // change slab kind
+        slab_ref.kind = dst_kind;
+
+        // append slab
+        match dst_kind {
+            SlabKind::Full => self.full.push_slab(slab_ref),
+            SlabKind::Partial => self.partial.push_slab(slab_ref),
+            SlabKind::Empty => self.empty.push_slab(slab_ref),
         }
     }
 
     /// Return object address according to `layout.size`.
     pub fn allocate(&mut self) -> *mut u8 {
-        match self.partial.pop_object() {
-            Some(obj) => obj as *mut FreeObject as *mut u8,
-            None => {
-                let obj = self
-                    .empty
-                    .pop_object()
-                    .expect("Empty List failed to allocate new node")
-                    as *mut FreeObject as *mut u8;
+        match self.partial.peek() {
+            Some(partial_slab_ptr) => unsafe {
+                match (*partial_slab_ptr).pop() {
+                    Some(obj) => obj as *mut FreeObject as *mut u8,
+                    None => {
+                        // partial -> full
+                        let full_slab = self.partial.pop_slab().unwrap();
+                        self.slab_migrate(full_slab, SlabKind::Full);
 
-                obj
+                        self.allocate() // retry
+                    }
+                }
+            },
+            None => {
+                // empty -> partial
+                let empty_slab = self
+                    .empty
+                    .pop_slab(self.object_size, self.page_allocator.clone());
+                self.slab_migrate(empty_slab, SlabKind::Full);
+                self.allocate() // retry
             }
         }
     }
 
     /// Free object according to `layout.size`.
     pub fn deallocate(&mut self, ptr: *mut u8) {
-        let ptr = ptr.cast::<FreeObject>();
-        unsafe {
-            self.partial.push_object(&mut *ptr);
+        let obj_ptr = ptr.cast::<FreeObject>();
+
+        match self.partial.pop_corresponding_slab(obj_ptr) {
+            Some(partial_slab) => unsafe {
+                partial_slab.push(&mut *obj_ptr);
+
+                if partial_slab.used_bytes == 0 {
+                    // partial -> empty
+                    self.slab_migrate(partial_slab, SlabKind::Empty);
+                } else {
+                    // push back poped slab.
+                    self.partial.push_slab(partial_slab);
+                }
+            },
+            None => match self.full.pop_corresponding_slab(obj_ptr) {
+                Some(full_slab) => unsafe {
+                    full_slab.push(&mut *obj_ptr);
+
+                    // full -> partial
+                    self.slab_migrate(full_slab, SlabKind::Partial);
+                },
+                None => panic!("corresponding slab is not found"),
+            },
         }
     }
 }
@@ -214,7 +263,7 @@ impl SlabAllocator {
     pub unsafe fn new(
         _start_addr: usize,
         _heap_size: usize,
-        page_allocator: Arc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         SlabAllocator {
             slab_64_bytes: Cache::new(ObjectSize::Byte64, page_allocator.clone()),
