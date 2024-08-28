@@ -101,23 +101,12 @@ impl MemoryBlockList {
 
     /// Append memory block greedily from raw pointer.
     /// It used for initialize this.
-    pub fn initialize_greedily(
-        &mut self,
-        mut current_addr: usize,
-        mut remain_size: usize,
-    ) -> (usize, usize) {
-        while remain_size < self.block_size as usize {
-            let new_header_ptr = current_addr as *mut FreeMemoryBlock;
-            unsafe {
-                *new_header_ptr = FreeMemoryBlock::new(self.block_size);
-                self.append(&mut *new_header_ptr);
-            }
-
-            current_addr += self.block_size as usize;
-            remain_size -= self.block_size as usize;
+    pub fn initialize(&mut self, start_addr: usize) {
+        let new_header_ptr = start_addr as *mut FreeMemoryBlock;
+        unsafe {
+            *new_header_ptr = FreeMemoryBlock::new(self.block_size);
+            self.append(&mut *new_header_ptr);
         }
-
-        (current_addr, remain_size)
     }
 
     /// Append new memory block
