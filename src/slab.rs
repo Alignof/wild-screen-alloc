@@ -193,7 +193,7 @@ impl Cache {
 
     /// Return object address according to `layout.size`.
     pub fn allocate(&mut self) -> *mut u8 {
-        match self.partial.head_ptr() {
+        match self.partial.peek() {
             Some(partial_slab_ptr) => unsafe {
                 match (*partial_slab_ptr).pop() {
                     Some(obj) => obj as *mut FreeObject as *mut u8,

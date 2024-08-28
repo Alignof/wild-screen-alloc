@@ -110,7 +110,7 @@ impl PartialList {
     }
 
     /// Return pointer of list head.
-    pub fn head_ptr(&mut self) -> Option<*mut Slab> {
+    pub fn peek(&mut self) -> Option<*mut Slab> {
         self.0.head.as_mut().map(|slab| *slab as *mut Slab)
     }
 
