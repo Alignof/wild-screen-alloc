@@ -32,13 +32,6 @@ struct FreeObject {
     next: Option<&'static mut Self>,
 }
 
-impl FreeObject {
-    /// Return address itself.
-    fn addr(&self) -> usize {
-        self as *const _ as usize
-    }
-}
-
 /// Slab (= 1 PAGE memory block)
 /// Node of `list::List`
 ///
