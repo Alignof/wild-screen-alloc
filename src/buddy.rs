@@ -187,43 +187,26 @@ impl BuddySystem {
     /// Allocate memory blocks to the largest list of block sizes that can be allocated
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         assert!(start_addr % constants::PAGE_SIZE == 0);
-        let current_addr = start_addr;
-        let remain_size = heap_size;
         let mut new_lists = Self::new_empty(start_addr);
 
-        let (current_addr, remain_size) = new_lists
-            .block_1024k_bytes
-            .initialize_greedily(current_addr, remain_size);
-        let (current_addr, remain_size) = new_lists
-            .block_512k_bytes
-            .initialize_greedily(current_addr, remain_size);
-        let (current_addr, remain_size) = new_lists
-            .block_256k_bytes
-            .initialize_greedily(current_addr, remain_size);
-        let (current_addr, remain_size) = new_lists
-            .block_128k_bytes
-            .initialize_greedily(current_addr, remain_size);
-        let (current_addr, remain_size) = new_lists
-            .block_64k_bytes
-            .initialize_greedily(current_addr, remain_size);
-        let (current_addr, remain_size) = new_lists
-            .block_32k_bytes
-            .initialize_greedily(current_addr, remain_size);
-        let (current_addr, remain_size) = new_lists
-            .block_16k_bytes
-            .initialize_greedily(current_addr, remain_size);
-        let (current_addr, remain_size) = new_lists
-            .block_8k_bytes
-            .initialize_greedily(current_addr, remain_size);
-        new_lists
-            .block_4k_bytes
-            .initialize_greedily(current_addr, remain_size);
+        match heap_size {
+            0x1000..0x2000 => new_lists.block_4k_bytes.initialize(start_addr),
+            0x2000..0x4000 => new_lists.block_8k_bytes.initialize(start_addr),
+            0x4000..0x8000 => new_lists.block_16k_bytes.initialize(start_addr),
+            0x8000..0x10000 => new_lists.block_32k_bytes.initialize(start_addr),
+            0x10000..0x20000 => new_lists.block_64k_bytes.initialize(start_addr),
+            0x20000..0x40000 => new_lists.block_128k_bytes.initialize(start_addr),
+            0x40000..0x80000 => new_lists.block_256k_bytes.initialize(start_addr),
+            0x80000..0x100000 => new_lists.block_512k_bytes.initialize(start_addr),
+            0x100000..0x200000 => new_lists.block_1024k_bytes.initialize(start_addr),
+            _ => panic!("requested size is too large"),
+        }
 
         new_lists
     }
 
     fn split_request(&mut self, corresponding_block_size: BlockSize) -> *mut u8 {
-        assert!(matches!(corresponding_block_size, BlockSize::Byte1024K));
+        assert!(!matches!(corresponding_block_size, BlockSize::Byte4K));
         let bigger_block_size = corresponding_block_size.bigger();
         let bigger_list = match bigger_block_size {
             BlockSize::Byte4K => &mut self.block_4k_bytes,
