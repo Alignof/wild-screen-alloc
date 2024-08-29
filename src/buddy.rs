@@ -206,7 +206,7 @@ impl BuddySystem {
     }
 
     fn split_request(&mut self, corresponding_block_size: BlockSize) -> *mut u8 {
-        assert!(!matches!(corresponding_block_size, BlockSize::Byte4K));
+        debug_assert!(!matches!(corresponding_block_size, BlockSize::Byte1024K));
         let bigger_block_size = corresponding_block_size.bigger();
         let bigger_list = match bigger_block_size {
             BlockSize::Byte4K => &mut self.block_4k_bytes,
@@ -245,7 +245,7 @@ impl BuddySystem {
                     corresponding_list.append(&mut *first_child);
                 }
 
-                first_child as *mut u8
+                second_child as *mut u8
             }
             None => self.split_request(bigger_block_size),
         }
