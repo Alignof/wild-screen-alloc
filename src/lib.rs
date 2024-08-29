@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 
 extern crate alloc;
 extern crate linked_list_allocator;
@@ -142,27 +142,65 @@ mod alloc_tests {
     use core::mem::{align_of, size_of};
     use spin::Mutex;
 
-    const HEAP_SIZE: usize = 16 * constants::PAGE_SIZE;
-    #[repr(align(4096))]
-    struct DummyHeap {
-        heap_space: [u8; HEAP_SIZE],
+    const HEAP_SIZE: usize = 4 * constants::PAGE_SIZE;
+    #[repr(C, align(0x10000))]
+    struct PageMemoryBlock([u8; HEAP_SIZE]);
+    impl Default for PageMemoryBlock {
+        fn default() -> Self {
+            PageMemoryBlock([0u8; HEAP_SIZE])
+        }
+    }
+
+    /// ref: [https://qiita.com/blackenedgold/items/823ab427477e37995ee6](https://qiita.com/blackenedgold/items/823ab427477e37995ee6)
+    fn alloc_heap() -> Box<[u8]> {
+        let vec_size = HEAP_SIZE / constants::PAGE_SIZE;
+        let mut vec = Vec::<PageMemoryBlock>::with_capacity(vec_size);
+        vec.resize_with(vec_size, Default::default);
+        unsafe {
+            let mut data = core::mem::transmute::<_, Vec<u8>>(vec);
+            data.set_len(HEAP_SIZE);
+            data.into_boxed_slice()
+        }
+    }
+
+    fn create_allocator() -> (Rc<Mutex<OnceCell<BuddySystem>>>, SlabAllocator) {
+        let dummy_heap = alloc_heap();
+        let buddy_cell = OnceCell::new();
+        buddy_cell.get_or_init(|| unsafe {
+            BuddySystem::new(
+                dummy_heap.as_ref() as *const [u8] as *const u8 as usize,
+                HEAP_SIZE,
+            )
+        });
+
+        let buddy_system = Rc::new(Mutex::new(buddy_cell));
+        let slab_allocator = unsafe {
+            SlabAllocator::new(
+                dummy_heap.as_ref() as *const [u8] as *const u8 as usize,
+                HEAP_SIZE,
+                buddy_system.clone(),
+            )
+        };
+
+        (buddy_system, slab_allocator)
     }
 
     #[test]
     fn create_allocator_test() {
-        let dummy_heap = DummyHeap {
-            heap_space: [0_u8; HEAP_SIZE],
-        };
-
+        dbg!("start");
+        let dummy_heap = alloc_heap();
         unsafe {
             let buddy_cell = OnceCell::new();
             buddy_cell.get_or_init(|| {
-                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
+                BuddySystem::new(
+                    dummy_heap.as_ref() as *const [u8] as *const u8 as usize,
+                    HEAP_SIZE,
+                )
             });
 
             let buddy_system = Rc::new(Mutex::new(buddy_cell));
             let _ = SlabAllocator::new(
-                &dummy_heap.heap_space as *const u8 as usize,
+                dummy_heap.as_ref() as *const [u8] as *const u8 as usize,
                 HEAP_SIZE,
                 buddy_system.clone(),
             );
@@ -171,29 +209,9 @@ mod alloc_tests {
 
     #[test]
     fn alloc_and_free_test() {
-        let dummy_heap = DummyHeap {
-            heap_space: [0_u8; HEAP_SIZE],
-        };
         let size = size_of::<usize>() * 2;
         let layout = Layout::from_size_align(size, align_of::<usize>());
-
-        let (_buddy_system, mut slab_allocator) = {
-            let buddy_cell = OnceCell::new();
-            buddy_cell.get_or_init(|| unsafe {
-                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
-            });
-
-            let buddy_system = Rc::new(Mutex::new(buddy_cell));
-            let slab_allocator = unsafe {
-                SlabAllocator::new(
-                    &dummy_heap.heap_space as *const u8 as usize,
-                    HEAP_SIZE,
-                    buddy_system.clone(),
-                )
-            };
-
-            (buddy_system, slab_allocator)
-        };
+        let (_buddy_system, mut slab_allocator) = create_allocator();
 
         let addr = slab_allocator.allocate(layout.clone().unwrap());
         assert!(!addr.is_null());
@@ -205,29 +223,9 @@ mod alloc_tests {
 
     #[test]
     fn alloc_4096_bytes() {
-        let dummy_heap = DummyHeap {
-            heap_space: [0_u8; HEAP_SIZE],
-        };
         let size = 4096;
         let layout = Layout::from_size_align(size, align_of::<usize>());
-
-        let (buddy_system, _slab_allocator) = {
-            let buddy_cell = OnceCell::new();
-            buddy_cell.get_or_init(|| unsafe {
-                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
-            });
-
-            let buddy_system = Rc::new(Mutex::new(buddy_cell));
-            let slab_allocator = unsafe {
-                SlabAllocator::new(
-                    &dummy_heap.heap_space as *const u8 as usize,
-                    HEAP_SIZE,
-                    buddy_system.clone(),
-                )
-            };
-
-            (buddy_system, slab_allocator)
-        };
+        let (buddy_system, _slab_allocator) = create_allocator();
 
         let addr = buddy_system
             .lock()
@@ -247,29 +245,9 @@ mod alloc_tests {
 
     #[test]
     fn alloc_4104_bytes() {
-        let dummy_heap = DummyHeap {
-            heap_space: [0_u8; HEAP_SIZE],
-        };
         let size = 4104;
         let layout = Layout::from_size_align(size, align_of::<usize>());
-
-        let (buddy_system, _slab_allocator) = {
-            let buddy_cell = OnceCell::new();
-            buddy_cell.get_or_init(|| unsafe {
-                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
-            });
-
-            let buddy_system = Rc::new(Mutex::new(buddy_cell));
-            let slab_allocator = unsafe {
-                SlabAllocator::new(
-                    &dummy_heap.heap_space as *const u8 as usize,
-                    HEAP_SIZE,
-                    buddy_system.clone(),
-                )
-            };
-
-            (buddy_system, slab_allocator)
-        };
+        let (buddy_system, _slab_allocator) = create_allocator();
 
         let addr = buddy_system
             .lock()
@@ -289,29 +267,9 @@ mod alloc_tests {
 
     #[test]
     fn alloc_8096_bytes() {
-        let dummy_heap = DummyHeap {
-            heap_space: [0_u8; HEAP_SIZE],
-        };
         let size = 8096;
         let layout = Layout::from_size_align(size, align_of::<usize>());
-
-        let (buddy_system, _slab_allocator) = {
-            let buddy_cell = OnceCell::new();
-            buddy_cell.get_or_init(|| unsafe {
-                BuddySystem::new(&dummy_heap.heap_space as *const u8 as usize, HEAP_SIZE)
-            });
-
-            let buddy_system = Rc::new(Mutex::new(buddy_cell));
-            let slab_allocator = unsafe {
-                SlabAllocator::new(
-                    &dummy_heap.heap_space as *const u8 as usize,
-                    HEAP_SIZE,
-                    buddy_system.clone(),
-                )
-            };
-
-            (buddy_system, slab_allocator)
-        };
+        let (buddy_system, _slab_allocator) = create_allocator();
 
         let addr = buddy_system
             .lock()
