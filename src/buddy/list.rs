@@ -18,14 +18,15 @@ impl FreeMemoryBlock {
         FreeMemoryBlock { size, next: None }
     }
 
-    /// Split memory block into two smaller block
+    /// Split memory block into two smaller block reference
+    /// Block isn't initialized here.
     pub fn split(&mut self) -> (&'static mut Self, &'static mut Self) {
         let self_ptr = self as *mut Self;
         assert!(self_ptr as usize % self.size.smaller() as usize == 0);
         debug_assert!(self.next.is_none());
 
         let first_child = self_ptr;
-        let second_child = unsafe { first_child.byte_add(self.size as usize) };
+        let second_child = unsafe { first_child.byte_add(self.size.smaller() as usize) };
 
         unsafe { (&mut *first_child, &mut *second_child) }
     }
