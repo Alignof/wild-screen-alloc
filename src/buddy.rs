@@ -127,6 +127,7 @@ impl BuddyManager {
 }
 
 pub struct BuddySystem {
+    max_block_size: BlockSize,
     block_4k_bytes: list::MemoryBlockList,
     block_8k_bytes: list::MemoryBlockList,
     block_16k_bytes: list::MemoryBlockList,
@@ -144,6 +145,7 @@ impl BuddySystem {
     fn new_empty(start_addr: usize) -> Self {
         let buddy_manager = Rc::new(RefCell::new(BuddyManager::new(start_addr)));
         BuddySystem {
+            max_block_size: BlockSize::Byte4K,
             block_4k_bytes: list::MemoryBlockList::new_empty(
                 BlockSize::Byte4K,
                 Rc::clone(&buddy_manager),
@@ -190,15 +192,42 @@ impl BuddySystem {
         let mut new_lists = Self::new_empty(start_addr);
 
         match heap_size {
-            0x1000..0x2000 => new_lists.block_4k_bytes.initialize(start_addr),
-            0x2000..0x4000 => new_lists.block_8k_bytes.initialize(start_addr),
-            0x4000..0x8000 => new_lists.block_16k_bytes.initialize(start_addr),
-            0x8000..0x10000 => new_lists.block_32k_bytes.initialize(start_addr),
-            0x10000..0x20000 => new_lists.block_64k_bytes.initialize(start_addr),
-            0x20000..0x40000 => new_lists.block_128k_bytes.initialize(start_addr),
-            0x40000..0x80000 => new_lists.block_256k_bytes.initialize(start_addr),
-            0x80000..0x100000 => new_lists.block_512k_bytes.initialize(start_addr),
-            0x100000..0x200000 => new_lists.block_1024k_bytes.initialize(start_addr),
+            0x1000..0x2000 => {
+                new_lists.max_block_size = BlockSize::Byte4K;
+                new_lists.block_4k_bytes.initialize(start_addr);
+            }
+            0x2000..0x4000 => {
+                new_lists.max_block_size = BlockSize::Byte8K;
+                new_lists.block_8k_bytes.initialize(start_addr);
+            }
+            0x4000..0x8000 => {
+                new_lists.max_block_size = BlockSize::Byte16K;
+                new_lists.block_16k_bytes.initialize(start_addr);
+            }
+            0x8000..0x10000 => {
+                new_lists.max_block_size = BlockSize::Byte32K;
+                new_lists.block_32k_bytes.initialize(start_addr);
+            }
+            0x10000..0x20000 => {
+                new_lists.max_block_size = BlockSize::Byte64K;
+                new_lists.block_64k_bytes.initialize(start_addr);
+            }
+            0x20000..0x40000 => {
+                new_lists.max_block_size = BlockSize::Byte128K;
+                new_lists.block_128k_bytes.initialize(start_addr);
+            }
+            0x40000..0x80000 => {
+                new_lists.max_block_size = BlockSize::Byte256K;
+                new_lists.block_256k_bytes.initialize(start_addr);
+            }
+            0x80000..0x100000 => {
+                new_lists.max_block_size = BlockSize::Byte512K;
+                new_lists.block_512k_bytes.initialize(start_addr);
+            }
+            0x100000..0x200000 => {
+                new_lists.max_block_size = BlockSize::Byte1024K;
+                new_lists.block_1024k_bytes.initialize(start_addr);
+            }
             _ => panic!("requested size is too large"),
         }
 
@@ -206,7 +235,8 @@ impl BuddySystem {
     }
 
     fn split_request(&mut self, corresponding_block_size: BlockSize) -> *mut u8 {
-        debug_assert!(!matches!(corresponding_block_size, BlockSize::Byte1024K));
+        debug_assert!(!matches!(self.max_block_size, corresponding_block_size));
+
         let bigger_block_size = corresponding_block_size.bigger();
         let bigger_list = match bigger_block_size {
             BlockSize::Byte4K => &mut self.block_4k_bytes,
@@ -242,10 +272,10 @@ impl BuddySystem {
                         BlockSize::Byte512K => &mut self.block_512k_bytes,
                         BlockSize::Byte1024K => &mut self.block_1024k_bytes,
                     };
-                    corresponding_list.append(&mut *first_child);
+                    corresponding_list.append(&mut *second_child);
                 }
 
-                second_child as *mut u8
+                first_child as *mut u8
             }
             None => self.split_request(bigger_block_size),
         }
