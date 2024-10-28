@@ -1,7 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 
 extern crate alloc;
-extern crate linked_list_allocator;
 
 mod buddy;
 mod slab;
