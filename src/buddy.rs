@@ -13,6 +13,7 @@ use core::cell::RefCell;
 
 /// Block size that is managed by buddy system.
 #[derive(Copy, Clone)]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 pub enum BlockSize {
     Byte4K = 4 * 1024, // = PAGE_SIZE
     Byte8K = 8 * 1024,
@@ -235,7 +236,7 @@ impl BuddySystem {
     }
 
     fn split_request(&mut self, corresponding_block_size: BlockSize) -> *mut u8 {
-        debug_assert!(!matches!(self.max_block_size, corresponding_block_size));
+        debug_assert_ne!(self.max_block_size, corresponding_block_size);
 
         let bigger_block_size = corresponding_block_size.bigger();
         let bigger_list = match bigger_block_size {
