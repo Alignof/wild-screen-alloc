@@ -13,7 +13,7 @@ use core::cell::RefCell;
 
 /// Block size that is managed by buddy system.
 #[derive(Copy, Clone)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(debug_assertions, derive(PartialEq, Debug))]
 pub enum BlockSize {
     Byte4K = 4 * 1024, // = PAGE_SIZE
     Byte8K = 8 * 1024,
