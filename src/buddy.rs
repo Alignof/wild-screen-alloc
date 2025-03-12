@@ -251,35 +251,33 @@ impl BuddySystem {
             BlockSize::Byte1024K => &mut self.block_1024k_bytes,
         };
 
-        match bigger_list.pop() {
-            Some(parent) => {
-                let (first_child, second_child) = parent.split();
-                let (first_child, second_child) = (
-                    first_child as *mut FreeMemoryBlock,
-                    second_child as *mut FreeMemoryBlock,
-                );
-                unsafe {
-                    *first_child = FreeMemoryBlock::new(corresponding_block_size);
-                    *second_child = FreeMemoryBlock::new(corresponding_block_size);
+        let parent = dbg!(bigger_list.pop()).unwrap_or(unsafe {
+            &mut *(self.split_request(bigger_block_size) as *mut FreeMemoryBlock)
+        });
+        let (first_child, second_child) = dbg!(parent.split());
+        let (first_child, second_child) = (
+            first_child as *mut FreeMemoryBlock,
+            second_child as *mut FreeMemoryBlock,
+        );
+        unsafe {
+            *first_child = FreeMemoryBlock::new(corresponding_block_size);
+            *second_child = FreeMemoryBlock::new(corresponding_block_size);
 
-                    let corresponding_list = match corresponding_block_size {
-                        BlockSize::Byte4K => &mut self.block_4k_bytes,
-                        BlockSize::Byte8K => &mut self.block_8k_bytes,
-                        BlockSize::Byte16K => &mut self.block_16k_bytes,
-                        BlockSize::Byte32K => &mut self.block_32k_bytes,
-                        BlockSize::Byte64K => &mut self.block_64k_bytes,
-                        BlockSize::Byte128K => &mut self.block_128k_bytes,
-                        BlockSize::Byte256K => &mut self.block_256k_bytes,
-                        BlockSize::Byte512K => &mut self.block_512k_bytes,
-                        BlockSize::Byte1024K => &mut self.block_1024k_bytes,
-                    };
-                    corresponding_list.append(&mut *second_child);
-                }
-
-                first_child as *mut u8
-            }
-            None => self.split_request(bigger_block_size),
+            let corresponding_list = match corresponding_block_size {
+                BlockSize::Byte4K => &mut self.block_4k_bytes,
+                BlockSize::Byte8K => &mut self.block_8k_bytes,
+                BlockSize::Byte16K => &mut self.block_16k_bytes,
+                BlockSize::Byte32K => &mut self.block_32k_bytes,
+                BlockSize::Byte64K => &mut self.block_64k_bytes,
+                BlockSize::Byte128K => &mut self.block_128k_bytes,
+                BlockSize::Byte256K => &mut self.block_256k_bytes,
+                BlockSize::Byte512K => &mut self.block_512k_bytes,
+                BlockSize::Byte1024K => &mut self.block_1024k_bytes,
+            };
+            corresponding_list.append(&mut *second_child);
         }
+
+        first_child as *mut u8
     }
 
     /// Allocates a new memory block.
