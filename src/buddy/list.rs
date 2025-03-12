@@ -6,6 +6,7 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 
 /// Node of `MemoryBlockList`
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct FreeMemoryBlock {
     /// Memory block size.
     pub size: BlockSize,
