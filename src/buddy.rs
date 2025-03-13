@@ -235,7 +235,7 @@ impl BuddySystem {
         new_lists
     }
 
-    /// Split large block
+    /// Split large block and return its pointer.
     ///
     /// - requested_block_size: requested block size.
     fn split_block(&mut self, requested_block_size: BlockSize) -> *mut FreeMemoryBlock {
@@ -255,9 +255,12 @@ impl BuddySystem {
         };
 
         // pop from bigger_list or further division
-        let parent =
-            dbg!(bigger_list.pop()).unwrap_or(unsafe { &mut *self.split_block(bigger_block_size) });
+        let parent = match bigger_list.pop() {
+            Some(bigger) => bigger,
+            None => unsafe { &mut *self.split_block(bigger_block_size) },
+        };
 
+        // split one bigger memory block
         let (first_child, second_child) = dbg!(parent.split());
         let (first_child, second_child) = (
             first_child as *mut FreeMemoryBlock,

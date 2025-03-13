@@ -26,10 +26,14 @@ impl FreeMemoryBlock {
         assert!(self_ptr as usize % self.size.smaller() as usize == 0);
         debug_assert!(self.next.is_none());
 
+        let new_size = self.size.smaller();
         let first_child = self_ptr;
         let second_child = unsafe { first_child.byte_add(self.size.smaller() as usize) };
+        let (first_child, second_child) = unsafe { (&mut *first_child, &mut *second_child) };
+        first_child.size = new_size;
+        second_child.size = new_size;
 
-        unsafe { (&mut *first_child, &mut *second_child) }
+        (first_child, second_child)
     }
 
     /// Is first half child
