@@ -235,10 +235,13 @@ impl BuddySystem {
         new_lists
     }
 
-    fn split_request(&mut self, corresponding_block_size: BlockSize) -> *mut u8 {
-        debug_assert_ne!(self.max_block_size, corresponding_block_size);
+    /// Split large block
+    ///
+    /// - requested_block_size: requested block size.
+    fn split_block(&mut self, requested_block_size: BlockSize) -> *mut FreeMemoryBlock {
+        debug_assert_ne!(self.max_block_size, requested_block_size);
 
-        let bigger_block_size = corresponding_block_size.bigger();
+        let bigger_block_size = requested_block_size.bigger();
         let bigger_list = match bigger_block_size {
             BlockSize::Byte4K => &mut self.block_4k_bytes,
             BlockSize::Byte8K => &mut self.block_8k_bytes,
@@ -251,19 +254,20 @@ impl BuddySystem {
             BlockSize::Byte1024K => &mut self.block_1024k_bytes,
         };
 
-        let parent = dbg!(bigger_list.pop()).unwrap_or(unsafe {
-            &mut *(self.split_request(bigger_block_size) as *mut FreeMemoryBlock)
-        });
+        // pop from bigger_list or further division
+        let parent =
+            dbg!(bigger_list.pop()).unwrap_or(unsafe { &mut *self.split_block(bigger_block_size) });
+
         let (first_child, second_child) = dbg!(parent.split());
         let (first_child, second_child) = (
             first_child as *mut FreeMemoryBlock,
             second_child as *mut FreeMemoryBlock,
         );
         unsafe {
-            *first_child = FreeMemoryBlock::new(corresponding_block_size);
-            *second_child = FreeMemoryBlock::new(corresponding_block_size);
+            *first_child = FreeMemoryBlock::new(requested_block_size);
+            *second_child = FreeMemoryBlock::new(requested_block_size);
 
-            let corresponding_list = match corresponding_block_size {
+            let corresponding_list = match requested_block_size {
                 BlockSize::Byte4K => &mut self.block_4k_bytes,
                 BlockSize::Byte8K => &mut self.block_8k_bytes,
                 BlockSize::Byte16K => &mut self.block_16k_bytes,
@@ -277,7 +281,7 @@ impl BuddySystem {
             corresponding_list.append(&mut *second_child);
         }
 
-        first_child as *mut u8
+        first_child
     }
 
     /// Allocates a new memory block.
@@ -296,8 +300,10 @@ impl BuddySystem {
         };
 
         match corresponding_block_list.pop() {
+            // get a free block
             Some(refer) => refer as *mut FreeMemoryBlock as *mut u8,
-            None => self.split_request(corresponding_block_size),
+            // split one large block.
+            None => self.split_block(corresponding_block_size) as *mut u8,
         }
     }
 
