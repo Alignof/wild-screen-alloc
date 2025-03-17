@@ -17,13 +17,15 @@ use spin::Mutex;
 /// An enum that indicate size of objects managed by the Slab cache.
 #[derive(Copy, Clone)]
 pub enum ObjectSize {
+    Byte8 = 8,
+    Byte16 = 16,
+    Byte32 = 32,
     Byte64 = 64,
     Byte128 = 128,
     Byte256 = 256,
     Byte512 = 512,
     Byte1024 = 1024,
     Byte2048 = 2048,
-    Byte4096 = 4096, // 4 kB = PAGE_SIZE
 }
 
 /// A linked list managing free objects.
@@ -243,13 +245,15 @@ impl Cache {
 /// Slab allocator that provide global allocator.
 /// If allocate size over 4096 bytes, it delegate to `linked_list_allocator`.
 pub struct SlabAllocator {
+    slab_8_bytes: Cache,
+    slab_16_bytes: Cache,
+    slab_32_bytes: Cache,
     slab_64_bytes: Cache,
     slab_128_bytes: Cache,
     slab_256_bytes: Cache,
     slab_512_bytes: Cache,
     slab_1024_bytes: Cache,
     slab_2048_bytes: Cache,
-    slab_4096_bytes: Cache,
 }
 
 impl SlabAllocator {
@@ -266,26 +270,30 @@ impl SlabAllocator {
         page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         SlabAllocator {
+            slab_8_bytes: Cache::new(ObjectSize::Byte8, page_allocator.clone()),
+            slab_16_bytes: Cache::new(ObjectSize::Byte16, page_allocator.clone()),
+            slab_32_bytes: Cache::new(ObjectSize::Byte32, page_allocator.clone()),
             slab_64_bytes: Cache::new(ObjectSize::Byte64, page_allocator.clone()),
             slab_128_bytes: Cache::new(ObjectSize::Byte128, page_allocator.clone()),
             slab_256_bytes: Cache::new(ObjectSize::Byte256, page_allocator.clone()),
             slab_512_bytes: Cache::new(ObjectSize::Byte512, page_allocator.clone()),
             slab_1024_bytes: Cache::new(ObjectSize::Byte1024, page_allocator.clone()),
             slab_2048_bytes: Cache::new(ObjectSize::Byte2048, page_allocator.clone()),
-            slab_4096_bytes: Cache::new(ObjectSize::Byte4096, page_allocator.clone()),
         }
     }
 
     /// Allocates a new object.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
         match Self::get_slab_size(&layout) {
+            ObjectSize::Byte8 => self.slab_8_bytes.allocate(),
+            ObjectSize::Byte16 => self.slab_16_bytes.allocate(),
+            ObjectSize::Byte32 => self.slab_32_bytes.allocate(),
             ObjectSize::Byte64 => self.slab_64_bytes.allocate(),
             ObjectSize::Byte128 => self.slab_128_bytes.allocate(),
             ObjectSize::Byte256 => self.slab_256_bytes.allocate(),
             ObjectSize::Byte512 => self.slab_512_bytes.allocate(),
             ObjectSize::Byte1024 => self.slab_1024_bytes.allocate(),
             ObjectSize::Byte2048 => self.slab_2048_bytes.allocate(),
-            ObjectSize::Byte4096 => self.slab_4096_bytes.allocate(),
         }
     }
 
@@ -297,13 +305,15 @@ impl SlabAllocator {
     /// If given ptr is null, it will panic.
     pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
         match Self::get_slab_size(&layout) {
+            ObjectSize::Byte8 => self.slab_8_bytes.deallocate(ptr),
+            ObjectSize::Byte16 => self.slab_16_bytes.deallocate(ptr),
+            ObjectSize::Byte32 => self.slab_32_bytes.deallocate(ptr),
             ObjectSize::Byte64 => self.slab_64_bytes.deallocate(ptr),
             ObjectSize::Byte128 => self.slab_128_bytes.deallocate(ptr),
             ObjectSize::Byte256 => self.slab_256_bytes.deallocate(ptr),
             ObjectSize::Byte512 => self.slab_512_bytes.deallocate(ptr),
             ObjectSize::Byte1024 => self.slab_1024_bytes.deallocate(ptr),
             ObjectSize::Byte2048 => self.slab_2048_bytes.deallocate(ptr),
-            ObjectSize::Byte4096 => self.slab_4096_bytes.deallocate(ptr),
         }
     }
 
@@ -311,13 +321,15 @@ impl SlabAllocator {
     fn get_slab_size(layout: &Layout) -> ObjectSize {
         assert!(layout.size() < 4096);
         match layout.size() {
-            0..=64 => ObjectSize::Byte64,
+            0..=8 => ObjectSize::Byte8,
+            9..=16 => ObjectSize::Byte16,
+            17..=32 => ObjectSize::Byte32,
+            33..=64 => ObjectSize::Byte64,
             65..=128 => ObjectSize::Byte128,
             129..=256 => ObjectSize::Byte256,
             257..=512 => ObjectSize::Byte512,
             513..=1024 => ObjectSize::Byte1024,
             1025..=2048 => ObjectSize::Byte2048,
-            2049..4096 => ObjectSize::Byte4096,
             _ => unreachable!(),
         }
     }
