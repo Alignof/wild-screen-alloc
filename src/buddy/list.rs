@@ -89,6 +89,7 @@ impl FreeMemoryBlock {
 }
 
 /// Linked list of memory block
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct MemoryBlockList {
     block_size: BlockSize,
     buddy_manager: Rc<RefCell<BuddyManager>>,

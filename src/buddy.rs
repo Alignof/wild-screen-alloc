@@ -78,6 +78,7 @@ impl BlockSize {
     }
 }
 
+#[cfg_attr(debug_assertions, derive(Debug))]
 struct BuddyManager {
     /// Base address of entire memory blocks
     base_addr: usize,
@@ -127,6 +128,7 @@ impl BuddyManager {
     }
 }
 
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct BuddySystem {
     max_block_size: BlockSize,
     block_4k_bytes: list::MemoryBlockList,
@@ -237,8 +239,11 @@ impl BuddySystem {
 
     /// Split large block and return its pointer.
     ///
-    /// - requested_block_size: requested block size.
+    /// - requested_block_size: requested memory block size.
     fn split_block(&mut self, requested_block_size: BlockSize) -> *mut FreeMemoryBlock {
+        if self.max_block_size == requested_block_size {
+            dbg!(&self);
+        }
         debug_assert_ne!(self.max_block_size, requested_block_size);
 
         let bigger_block_size = requested_block_size.bigger();
@@ -261,7 +266,7 @@ impl BuddySystem {
         };
 
         // split one bigger memory block
-        let (first_child, second_child) = dbg!(parent.split());
+        let (first_child, second_child) = parent.split();
         let (first_child, second_child) = (
             first_child as *mut FreeMemoryBlock,
             second_child as *mut FreeMemoryBlock,
