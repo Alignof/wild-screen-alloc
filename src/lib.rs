@@ -139,7 +139,8 @@ mod alloc_tests {
     use core::mem::{align_of, size_of};
     use spin::Mutex;
 
-    const HEAP_SIZE: usize = 8 * constants::PAGE_SIZE;
+    const HEAP_SIZE: usize =
+        2 * constants::NUM_OF_BUDDY_SIZE * constants::DEFAULT_SLAB_NUM * constants::PAGE_SIZE;
     #[repr(C, align(0x20000))]
     struct PageMemoryBlock([u8; HEAP_SIZE]);
     impl Default for PageMemoryBlock {
