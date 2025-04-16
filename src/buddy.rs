@@ -15,19 +15,28 @@ use core::cell::RefCell;
 #[derive(Copy, Clone)]
 #[cfg_attr(debug_assertions, derive(PartialEq, Debug))]
 pub enum BlockSize {
+    /// 4 KiB memory block.
     Byte4K = 4 * 1024, // = PAGE_SIZE
+    /// 8 KiB memory block.
     Byte8K = 8 * 1024,
+    /// 16 KiB memory block.
     Byte16K = 16 * 1024,
+    /// 32 KiB memory block.
     Byte32K = 32 * 1024,
+    /// 64 KiB memory block.
     Byte64K = 64 * 1024,
+    /// 128 KiB memory block.
     Byte128K = 128 * 1024,
+    /// 256 KiB memory block.
     Byte256K = 256 * 1024,
+    /// 512 KiB memory block.
     Byte512K = 512 * 1024,
+    /// 1024 KiB memory block.
     Byte1024K = 1024 * 1024,
 }
 
 impl BlockSize {
-    /// Return smaller size.
+    /// Return one step smaller size than itself.
     pub fn smaller(self) -> Self {
         match self {
             Self::Byte4K => panic!("Byte4K is min size block"),
@@ -42,7 +51,7 @@ impl BlockSize {
         }
     }
 
-    /// Return bigger size.
+    /// Return one step bigger size than itself.
     pub fn bigger(self) -> Self {
         match self {
             Self::Byte4K => BlockSize::Byte8K,
@@ -57,7 +66,7 @@ impl BlockSize {
         }
     }
 
-    /// Return log 2 of self
+    /// Return log 2 of itself.
     pub fn log2(&self) -> usize {
         match self {
             Self::Byte4K => 12,
@@ -91,6 +100,7 @@ struct BuddyManager {
 }
 
 impl BuddyManager {
+    /// Constructor.
     pub fn new(base_addr: usize) -> Self {
         BuddyManager {
             base_addr,
@@ -98,14 +108,17 @@ impl BuddyManager {
         }
     }
 
+    /// Get a buddy state.
     fn get_state(&self, index: usize) -> bool {
         (self.buddy_state[index / 8] >> (index % 8)) & 1 == 1
     }
 
+    /// Flip a buddy state.
     fn flip_state(&mut self, index: usize) {
         self.buddy_state[index / 8] ^= 1 << (index % 8);
     }
 
+    /// Convert a block pointer to a buddy index.
     fn ptr_to_index(&self, block_ptr: *const FreeMemoryBlock) -> usize {
         let block_addr = block_ptr as usize;
         let addr_offset = block_addr - self.base_addr;
@@ -115,12 +128,14 @@ impl BuddyManager {
         buddy_index_start + buddy_index_offset
     }
 
+    /// Recives a pointer and flip buddy state.
     pub fn flip_buddy_state(&mut self, block_ptr: *const FreeMemoryBlock) {
         let buddy_index = self.ptr_to_index(block_ptr);
         let parant_buddy_index = (buddy_index - 1) / 2;
         self.flip_state(parant_buddy_index);
     }
 
+    /// Returns whether the block pointed to by the pointer is mergeable or not.
     pub fn is_mergeable(&self, block_ptr: *const FreeMemoryBlock) -> bool {
         let buddy_index = self.ptr_to_index(block_ptr);
         let parant_buddy_index = (buddy_index - 1) / 2;
@@ -128,18 +143,30 @@ impl BuddyManager {
     }
 }
 
+/// Buddy system
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct BuddySystem {
+    /// Max block size manageble by `BuddySystem`.
     max_block_size: BlockSize,
+    /// List of 4 KiB size memory block.
     block_4k_bytes: list::MemoryBlockList,
+    /// List of 8 KiB size memory block.
     block_8k_bytes: list::MemoryBlockList,
+    /// List of 16 KiB size memory block.
     block_16k_bytes: list::MemoryBlockList,
+    /// List of 32 KiB size memory block.
     block_32k_bytes: list::MemoryBlockList,
+    /// List of 64 KiB size memory block.
     block_64k_bytes: list::MemoryBlockList,
+    /// List of 128 KiB size memory block.
     block_128k_bytes: list::MemoryBlockList,
+    /// List of 256 KiB size memory block.
     block_256k_bytes: list::MemoryBlockList,
+    /// List of 512 KiB size memory block.
     block_512k_bytes: list::MemoryBlockList,
+    /// List of 1024 KiB size memory block.
     block_1024k_bytes: list::MemoryBlockList,
+    /// Pointer of `BuddyManager`
     _buddy_manager: Rc<RefCell<BuddyManager>>,
 }
 
@@ -362,6 +389,7 @@ impl BuddySystem {
         }
     }
 
+    /// Return a memory block size of itself.
     fn get_memory_block_size(layout: &Layout) -> BlockSize {
         match layout.size() {
             0x1000..0x2000 => BlockSize::Byte4K,
