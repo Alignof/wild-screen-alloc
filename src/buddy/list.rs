@@ -15,6 +15,7 @@ pub struct FreeMemoryBlock {
 }
 
 impl FreeMemoryBlock {
+    /// Return new `FreeMemoryBlock`
     pub fn new(size: BlockSize) -> Self {
         FreeMemoryBlock { size, next: None }
     }
@@ -91,8 +92,11 @@ impl FreeMemoryBlock {
 /// Linked list of memory block
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct MemoryBlockList {
+    /// Memory block size.
     block_size: BlockSize,
+    /// Reference of `BuddyManager`.
     buddy_manager: Rc<RefCell<BuddyManager>>,
+    /// Head block of the linked list.
     pub head: Option<&'static mut FreeMemoryBlock>,
 }
 
