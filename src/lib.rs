@@ -139,30 +139,26 @@ mod alloc_tests {
     use core::mem::{align_of, size_of};
     use spin::Mutex;
 
+    const HEAP_ALIGN: usize = 0x2_0000;
     const HEAP_SIZE: usize =
         2 * constants::NUM_OF_BUDDY_SIZE * constants::DEFAULT_SLAB_NUM * constants::PAGE_SIZE;
-    #[repr(C, align(0x20000))]
-    struct PageMemoryBlock([u8; HEAP_SIZE]);
-    impl Default for PageMemoryBlock {
-        fn default() -> Self {
-            PageMemoryBlock([0u8; HEAP_SIZE])
-        }
-    }
 
-    /// ref: [https://qiita.com/blackenedgold/items/823ab427477e37995ee6](https://qiita.com/blackenedgold/items/823ab427477e37995ee6)
-    fn alloc_heap() -> Box<[u8]> {
-        let vec_size = HEAP_SIZE / constants::PAGE_SIZE;
-        let mut vec = Vec::<PageMemoryBlock>::with_capacity(vec_size);
-        vec.resize_with(vec_size, Default::default);
+    fn get_heap_memory() -> &'static mut [u8] {
+        let layout = match Layout::from_size_align(HEAP_SIZE, HEAP_ALIGN) {
+            Ok(l) => l,
+            Err(e) => {
+                panic!("Invalid layout: {}", e);
+            }
+        };
+
         unsafe {
-            let mut data = core::mem::transmute::<_, Vec<u8>>(vec);
-            data.set_len(HEAP_SIZE);
-            data.into_boxed_slice()
+            let ptr = std::alloc::alloc_zeroed(layout);
+            core::slice::from_raw_parts_mut(ptr as *mut u8, HEAP_SIZE)
         }
     }
 
     fn create_allocator() -> (Rc<Mutex<OnceCell<BuddySystem>>>, SlabAllocator) {
-        let dummy_heap = alloc_heap();
+        let dummy_heap = get_heap_memory();
         let buddy_cell = OnceCell::new();
         buddy_cell.get_or_init(|| unsafe {
             BuddySystem::new(
@@ -186,7 +182,7 @@ mod alloc_tests {
     #[test]
     fn create_allocator_test() {
         dbg!("start");
-        let dummy_heap = alloc_heap();
+        let dummy_heap = get_heap_memory();
         unsafe {
             let buddy_cell = OnceCell::new();
             buddy_cell.get_or_init(|| {
