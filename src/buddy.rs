@@ -87,6 +87,7 @@ impl BlockSize {
     }
 }
 
+/// Manage memory blocks as buddy.
 #[cfg_attr(debug_assertions, derive(Debug))]
 struct BuddyManager {
     /// Base address of entire memory blocks

@@ -256,14 +256,23 @@ impl Cache {
 /// Slab allocator that provide global allocator.
 /// If allocate size over 4096 bytes, it delegate to `linked_list_allocator`.
 pub struct SlabAllocator {
+    /// 8 bytes slab cache.
     slab_8_bytes: Cache,
+    /// 16 bytes slab cache.
     slab_16_bytes: Cache,
+    /// 32 bytes slab cache.
     slab_32_bytes: Cache,
+    /// 64 bytes slab cache.
     slab_64_bytes: Cache,
+    /// 128 bytes slab cache.
     slab_128_bytes: Cache,
+    /// 256 bytes slab cache.
     slab_256_bytes: Cache,
+    /// 512 bytes slab cache.
     slab_512_bytes: Cache,
+    /// 1024 bytes slab cache.
     slab_1024_bytes: Cache,
+    /// 2048 bytes slab cache.
     slab_2048_bytes: Cache,
 }
 
