@@ -211,7 +211,7 @@ mod alloc_tests {
     }
 
     #[test]
-    fn alloc_and_free_test() {
+    fn slab_alloc_test() {
         let size = size_of::<usize>() * 2;
         let layout = Layout::from_size_align(size, align_of::<usize>());
         let (_buddy_system, mut slab_allocator) = create_allocator();

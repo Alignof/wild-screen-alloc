@@ -16,7 +16,7 @@ pub struct List {
 }
 
 impl List {
-    /// Return with initialized Slab.
+    /// Return initialized Slab.
     pub fn new(
         obj_size: ObjectSize,
         default_node_num: usize,
@@ -34,7 +34,7 @@ impl List {
         }
     }
 
-    /// Return with empty list.
+    /// Return empty list.
     pub fn new_empty() -> Self {
         List { len: 0, head: None }
     }
