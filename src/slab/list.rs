@@ -9,14 +9,14 @@ use spin::Mutex;
 
 /// Linked list of Slab
 pub struct List {
-    /// List length.
+    /// Length of the list.
     len: usize,
-    /// head of `Slab` linked list.
+    /// Head of `Slab` linked list.
     pub head: Option<&'static mut Slab>,
 }
 
 impl List {
-    /// Return with initialize Slab.
+    /// Return with initialized Slab.
     pub fn new(
         obj_size: ObjectSize,
         default_node_num: usize,
@@ -51,9 +51,11 @@ impl List {
     }
 }
 
+/// List of empty slabs.
 pub struct EmptyList(List);
 
 impl EmptyList {
+    /// Create new `EmptyList`.
     pub fn new(
         obj_size: ObjectSize,
         default_node_num: usize,
@@ -62,17 +64,17 @@ impl EmptyList {
         EmptyList(List::new(obj_size, default_node_num, page_allocator))
     }
 
-    /// Return with empty list.
+    /// Create new empty list.
     pub fn new_empty() -> Self {
         EmptyList(List::new_empty())
     }
 
-    /// Push new `Slab` to list.
+    /// Push new `Slab` to the list.
     pub fn push_slab(&mut self, slab: &'static mut Slab) {
         self.0.push_slab(slab);
     }
 
-    /// Pop `Slab` from list.
+    /// Pop `Slab` from the list.
     ///
     /// If list is empty, new Slab allocate from new page.
     pub fn pop_slab(
@@ -88,25 +90,26 @@ impl EmptyList {
     }
 }
 
+/// List of partialy used slab.
 pub struct PartialList(pub List);
 
 impl PartialList {
-    /// Return with empty list.
+    /// Create an empty list.
     pub fn new_empty() -> Self {
         PartialList(List::new_empty())
     }
 
-    /// Push new `Slab` to list.
+    /// Push new `Slab` to the list.
     pub fn push_slab(&mut self, slab: &'static mut Slab) {
         self.0.push_slab(slab);
     }
 
-    /// Pop `Slab` from list.
+    /// Pop `Slab` from the list.
     pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.0.pop_slab()
     }
 
-    /// Return pointer of list head.
+    /// Return the head pointer of the list.
     pub fn peek(&mut self) -> Option<*mut Slab> {
         self.0.head.as_mut().map(|slab| *slab as *mut Slab)
     }
@@ -129,20 +132,21 @@ impl PartialList {
     }
 }
 
+/// List of fully used slab.
 pub struct FullList(List);
 
 impl FullList {
-    /// Return with empty list.
+    /// Create new empty list.
     pub fn new_empty() -> Self {
         FullList(List::new_empty())
     }
 
-    /// Push new `Slab` to list.
+    /// Push new `Slab` to the list.
     pub fn push_slab(&mut self, slab: &'static mut Slab) {
         self.0.push_slab(slab);
     }
 
-    /// Pop `Slab` from list.
+    /// Pop `Slab` from the list.
     pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.0.pop_slab()
     }
