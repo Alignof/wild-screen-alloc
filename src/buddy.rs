@@ -15,19 +15,28 @@ use core::cell::RefCell;
 #[derive(Copy, Clone)]
 #[cfg_attr(debug_assertions, derive(PartialEq, Debug))]
 pub enum BlockSize {
+    /// 4 KiB memory block.
     Byte4K = 4 * 1024, // = PAGE_SIZE
+    /// 8 KiB memory block.
     Byte8K = 8 * 1024,
+    /// 16 KiB memory block.
     Byte16K = 16 * 1024,
+    /// 32 KiB memory block.
     Byte32K = 32 * 1024,
+    /// 64 KiB memory block.
     Byte64K = 64 * 1024,
+    /// 128 KiB memory block.
     Byte128K = 128 * 1024,
+    /// 256 KiB memory block.
     Byte256K = 256 * 1024,
+    /// 512 KiB memory block.
     Byte512K = 512 * 1024,
+    /// 1024 KiB memory block.
     Byte1024K = 1024 * 1024,
 }
 
 impl BlockSize {
-    /// Return smaller size.
+    /// Return one step smaller size than itself.
     pub fn smaller(self) -> Self {
         match self {
             Self::Byte4K => panic!("Byte4K is min size block"),
@@ -42,7 +51,7 @@ impl BlockSize {
         }
     }
 
-    /// Return bigger size.
+    /// Return one step bigger size than itself.
     pub fn bigger(self) -> Self {
         match self {
             Self::Byte4K => BlockSize::Byte8K,
@@ -57,7 +66,7 @@ impl BlockSize {
         }
     }
 
-    /// Return log 2 of self
+    /// Return log 2 of itself.
     pub fn log2(&self) -> usize {
         match self {
             Self::Byte4K => 12,
@@ -78,19 +87,21 @@ impl BlockSize {
     }
 }
 
+/// Manage memory blocks as buddy.
 #[cfg_attr(debug_assertions, derive(Debug))]
 struct BuddyManager {
     /// Base address of entire memory blocks
     base_addr: usize,
     /// Buddy (two child of self) state
-    /// - 0: Unused or BothUsed
-    /// - 1: Splited (OneUsed)
+    /// - 0: Unused or `BothUsed`
+    /// - 1: Splited (`OneUsed`)
     ///
     /// It indicate two child state of block, so minimum block does not require this one.
     buddy_state: [u8; (1 << (constants::NUM_OF_BUDDY_SIZE - 1)) / 8],
 }
 
 impl BuddyManager {
+    /// Constructor.
     pub fn new(base_addr: usize) -> Self {
         BuddyManager {
             base_addr,
@@ -98,14 +109,17 @@ impl BuddyManager {
         }
     }
 
+    /// Get a buddy state.
     fn get_state(&self, index: usize) -> bool {
         (self.buddy_state[index / 8] >> (index % 8)) & 1 == 1
     }
 
+    /// Flip a buddy state.
     fn flip_state(&mut self, index: usize) {
         self.buddy_state[index / 8] ^= 1 << (index % 8);
     }
 
+    /// Convert a block pointer to a buddy index.
     fn ptr_to_index(&self, block_ptr: *const FreeMemoryBlock) -> usize {
         let block_addr = block_ptr as usize;
         let addr_offset = block_addr - self.base_addr;
@@ -115,12 +129,14 @@ impl BuddyManager {
         buddy_index_start + buddy_index_offset
     }
 
+    /// Recives a pointer and flip buddy state.
     pub fn flip_buddy_state(&mut self, block_ptr: *const FreeMemoryBlock) {
         let buddy_index = self.ptr_to_index(block_ptr);
         let parant_buddy_index = (buddy_index - 1) / 2;
         self.flip_state(parant_buddy_index);
     }
 
+    /// Returns whether the block pointed to by the pointer is mergeable or not.
     pub fn is_mergeable(&self, block_ptr: *const FreeMemoryBlock) -> bool {
         let buddy_index = self.ptr_to_index(block_ptr);
         let parant_buddy_index = (buddy_index - 1) / 2;
@@ -128,18 +144,30 @@ impl BuddyManager {
     }
 }
 
+/// Buddy system
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct BuddySystem {
+    /// Max block size manageble by `BuddySystem`.
     max_block_size: BlockSize,
+    /// List of 4 KiB size memory block.
     block_4k_bytes: list::MemoryBlockList,
+    /// List of 8 KiB size memory block.
     block_8k_bytes: list::MemoryBlockList,
+    /// List of 16 KiB size memory block.
     block_16k_bytes: list::MemoryBlockList,
+    /// List of 32 KiB size memory block.
     block_32k_bytes: list::MemoryBlockList,
+    /// List of 64 KiB size memory block.
     block_64k_bytes: list::MemoryBlockList,
+    /// List of 128 KiB size memory block.
     block_128k_bytes: list::MemoryBlockList,
+    /// List of 256 KiB size memory block.
     block_256k_bytes: list::MemoryBlockList,
+    /// List of 512 KiB size memory block.
     block_512k_bytes: list::MemoryBlockList,
+    /// List of 1024 KiB size memory block.
     block_1024k_bytes: list::MemoryBlockList,
+    /// Pointer of `BuddyManager`
     _buddy_manager: Rc<RefCell<BuddyManager>>,
 }
 
@@ -239,7 +267,7 @@ impl BuddySystem {
 
     /// Split large block and return its pointer.
     ///
-    /// - requested_block_size: requested memory block size.
+    /// - `requested_block_size`: requested memory block size.
     fn split_block(&mut self, requested_block_size: BlockSize) -> *mut FreeMemoryBlock {
         if self.max_block_size == requested_block_size {
             dbg!(&self);
@@ -268,8 +296,8 @@ impl BuddySystem {
         // split one bigger memory block
         let (first_child, second_child) = parent.split();
         let (first_child, second_child) = (
-            first_child as *mut FreeMemoryBlock,
-            second_child as *mut FreeMemoryBlock,
+            std::ptr::from_mut::<FreeMemoryBlock>(first_child),
+            std::ptr::from_mut::<FreeMemoryBlock>(second_child),
         );
         unsafe {
             *first_child = FreeMemoryBlock::new(requested_block_size);
@@ -309,9 +337,9 @@ impl BuddySystem {
 
         match corresponding_block_list.pop() {
             // get a free block
-            Some(refer) => refer as *mut FreeMemoryBlock as *mut u8,
+            Some(refer) => std::ptr::from_mut::<FreeMemoryBlock>(refer) as *mut u8,
             // split one large block.
-            None => self.split_block(corresponding_block_size) as *mut u8,
+            None => self.split_block(corresponding_block_size).cast::<u8>(),
         }
     }
 
@@ -345,7 +373,7 @@ impl BuddySystem {
         };
 
         // merge child block and move doubled block to corresponding list
-        let mut block_ptr = ptr as *mut FreeMemoryBlock;
+        let mut block_ptr = ptr.cast::<FreeMemoryBlock>();
         while let Some(merged) = corresponding_list.append(&mut *block_ptr) {
             block_ptr = merged;
             corresponding_list = match corresponding_block_size {
@@ -362,6 +390,7 @@ impl BuddySystem {
         }
     }
 
+    /// Return a memory block size of itself.
     fn get_memory_block_size(layout: &Layout) -> BlockSize {
         match layout.size() {
             0x1000..0x2000 => BlockSize::Byte4K,

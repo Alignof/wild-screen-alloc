@@ -15,6 +15,7 @@ pub struct FreeMemoryBlock {
 }
 
 impl FreeMemoryBlock {
+    /// Return new `FreeMemoryBlock`
     pub fn new(size: BlockSize) -> Self {
         FreeMemoryBlock { size, next: None }
     }
@@ -40,7 +41,7 @@ impl FreeMemoryBlock {
     ///
     /// This method used to return address of parant block
     fn is_first_half(&self) -> bool {
-        let self_addr = self as *const Self as usize;
+        let self_addr = std::ptr::from_ref::<Self>(self) as usize;
         self_addr % self.size.bigger() as usize == 0
     }
 
@@ -76,7 +77,7 @@ impl FreeMemoryBlock {
             // return pointer of head of one
             if self.is_first_half() {
                 self.size = self.size.bigger();
-                unsafe { Some(&mut *(self as *mut Self)) }
+                unsafe { Some(&mut *std::ptr::from_mut::<Self>(self)) }
             } else {
                 let buddy = self.get_buddy();
                 buddy.size = buddy.size.bigger();
@@ -91,8 +92,11 @@ impl FreeMemoryBlock {
 /// Linked list of memory block
 #[cfg_attr(debug_assertions, derive(Debug))]
 pub struct MemoryBlockList {
+    /// Memory block size.
     block_size: BlockSize,
+    /// Reference of `BuddyManager`.
     buddy_manager: Rc<RefCell<BuddyManager>>,
+    /// Head block of the linked list.
     pub head: Option<&'static mut FreeMemoryBlock>,
 }
 

@@ -17,20 +17,30 @@ use spin::Mutex;
 /// An enum that indicate size of objects managed by the Slab cache.
 #[derive(Copy, Clone)]
 pub enum ObjectSize {
+    /// 8 bytes.
     Byte8 = 8,
+    /// 16 bytes.
     Byte16 = 16,
+    /// 32 bytes.
     Byte32 = 32,
+    /// 64 bytes.
     Byte64 = 64,
+    /// 128 bytes.
     Byte128 = 128,
+    /// 256 bytes.
     Byte256 = 256,
+    /// 512 bytes.
     Byte512 = 512,
+    /// 1024 bytes.
     Byte1024 = 1024,
+    /// 2048 bytes.
     Byte2048 = 2048,
 }
 
 /// A linked list managing free objects.
 /// This struct is placed unused heap space.
 struct FreeObject {
+    /// Next `FreeObject` pointer.
     next: Option<&'static mut Self>,
 }
 
@@ -116,9 +126,11 @@ impl Slab {
         })
     }
 
+    /// Check if a given pointer is within the Slab region.
     fn is_contain(&self, obj_ptr: *const FreeObject) -> bool {
-        let slab_start = self as *const Self as usize;
-        let slab_end = unsafe { (self as *const Self).byte_add(constants::PAGE_SIZE) as usize };
+        let slab_start = std::ptr::from_ref::<Self>(self) as usize;
+        let slab_end =
+            unsafe { std::ptr::from_ref::<Self>(self).byte_add(constants::PAGE_SIZE) as usize };
 
         (slab_start..slab_end).contains(&(obj_ptr as usize))
     }
@@ -192,7 +204,7 @@ impl Cache {
         match self.partial.peek() {
             Some(partial_slab_ptr) => unsafe {
                 match (*partial_slab_ptr).pop() {
-                    Some(obj) => obj as *mut FreeObject as *mut u8,
+                    Some(obj) => std::ptr::from_mut::<FreeObject>(obj) as *mut u8,
                     None => {
                         // partial -> full
                         let full_slab = self.partial.pop_slab().unwrap();
@@ -245,14 +257,23 @@ impl Cache {
 /// Slab allocator that provide global allocator.
 /// If allocate size over 4096 bytes, it delegate to `linked_list_allocator`.
 pub struct SlabAllocator {
+    /// 8 bytes slab cache.
     slab_8_bytes: Cache,
+    /// 16 bytes slab cache.
     slab_16_bytes: Cache,
+    /// 32 bytes slab cache.
     slab_32_bytes: Cache,
+    /// 64 bytes slab cache.
     slab_64_bytes: Cache,
+    /// 128 bytes slab cache.
     slab_128_bytes: Cache,
+    /// 256 bytes slab cache.
     slab_256_bytes: Cache,
+    /// 512 bytes slab cache.
     slab_512_bytes: Cache,
+    /// 1024 bytes slab cache.
     slab_1024_bytes: Cache,
+    /// 2048 bytes slab cache.
     slab_2048_bytes: Cache,
 }
 

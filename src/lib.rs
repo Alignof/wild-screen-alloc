@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 extern crate alloc;
 
 mod buddy;
@@ -8,7 +10,7 @@ use alloc::rc::Rc;
 use core::cell::OnceCell;
 use spin::Mutex;
 
-/// Constants.
+/// Constants of the allocator.
 mod constants {
     /// Default number of slab.
     pub const DEFAULT_SLAB_NUM: usize = 8;
@@ -18,9 +20,14 @@ mod constants {
     pub const PAGE_SIZE: usize = 4096;
 }
 
+/// Main struct
 pub struct WildScreenAlloc {
-    slab: Mutex<OnceCell<slab::SlabAllocator>>,
+    /// Pointer of a buddy system.
+    ///
+    /// It'll be shared to `slab`.
     buddy: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
+    /// Pointer of a slab allocator.
+    slab: Mutex<OnceCell<slab::SlabAllocator>>,
 }
 
 impl WildScreenAlloc {
@@ -34,10 +41,11 @@ impl WildScreenAlloc {
     ///
     /// pub fn init_heap() { /* initialize ALLOCATOR */ }
     /// ```
+    #[must_use]
     pub fn empty() -> Self {
         WildScreenAlloc {
-            slab: Mutex::new(OnceCell::new()),
             buddy: Rc::new(Mutex::new(OnceCell::new())),
+            slab: Mutex::new(OnceCell::new()),
         }
     }
 
@@ -71,6 +79,7 @@ impl WildScreenAlloc {
     /// Create new allocator locked by mutex.
     /// # Safety
     /// `start_addr` must be aligned 4096.
+    #[must_use]
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         let new_buddy = OnceCell::new();
         new_buddy
@@ -119,13 +128,13 @@ unsafe impl GlobalAlloc for WildScreenAlloc {
                 .lock()
                 .get_mut()
                 .expect("Slab allocator is not initialized")
-                .deallocate(ptr, layout)
+                .deallocate(ptr, layout);
         } else {
             self.buddy
                 .lock()
                 .get_mut()
                 .expect("Buddy system is not initialized")
-                .deallocate(ptr, layout)
+                .deallocate(ptr, layout);
         }
     }
 }
