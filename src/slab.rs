@@ -17,20 +17,30 @@ use spin::Mutex;
 /// An enum that indicate size of objects managed by the Slab cache.
 #[derive(Copy, Clone)]
 pub enum ObjectSize {
+    /// 8 bytes.
     Byte8 = 8,
+    /// 16 bytes.
     Byte16 = 16,
+    /// 32 bytes.
     Byte32 = 32,
+    /// 64 bytes.
     Byte64 = 64,
+    /// 128 bytes.
     Byte128 = 128,
+    /// 256 bytes.
     Byte256 = 256,
+    /// 512 bytes.
     Byte512 = 512,
+    /// 1024 bytes.
     Byte1024 = 1024,
+    /// 2048 bytes.
     Byte2048 = 2048,
 }
 
 /// A linked list managing free objects.
 /// This struct is placed unused heap space.
 struct FreeObject {
+    /// Next `FreeObject` pointer.
     next: Option<&'static mut Self>,
 }
 
@@ -116,6 +126,7 @@ impl Slab {
         })
     }
 
+    /// Check if a given pointer is within the Slab region.
     fn is_contain(&self, obj_ptr: *const FreeObject) -> bool {
         let slab_start = self as *const Self as usize;
         let slab_end = unsafe { (self as *const Self).byte_add(constants::PAGE_SIZE) as usize };
