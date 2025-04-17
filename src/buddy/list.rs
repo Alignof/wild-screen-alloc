@@ -113,6 +113,7 @@ impl MemoryBlockList {
     /// Append memory block greedily from raw pointer.
     /// It used for initialize this.
     pub fn initialize(&mut self, start_addr: usize) {
+        assert!(start_addr as usize % self.block_size as usize == 0);
         let new_header_ptr = start_addr as *mut FreeMemoryBlock;
         unsafe {
             *new_header_ptr = FreeMemoryBlock::new(self.block_size);
