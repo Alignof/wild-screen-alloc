@@ -93,8 +93,8 @@ struct BuddyManager {
     /// Base address of entire memory blocks
     base_addr: usize,
     /// Buddy (two child of self) state
-    /// - 0: Unused or BothUsed
-    /// - 1: Splited (OneUsed)
+    /// - 0: Unused or `BothUsed`
+    /// - 1: Splited (`OneUsed`)
     ///
     /// It indicate two child state of block, so minimum block does not require this one.
     buddy_state: [u8; (1 << (constants::NUM_OF_BUDDY_SIZE - 1)) / 8],
@@ -267,7 +267,7 @@ impl BuddySystem {
 
     /// Split large block and return its pointer.
     ///
-    /// - requested_block_size: requested memory block size.
+    /// - `requested_block_size`: requested memory block size.
     fn split_block(&mut self, requested_block_size: BlockSize) -> *mut FreeMemoryBlock {
         if self.max_block_size == requested_block_size {
             dbg!(&self);
@@ -296,8 +296,8 @@ impl BuddySystem {
         // split one bigger memory block
         let (first_child, second_child) = parent.split();
         let (first_child, second_child) = (
-            first_child as *mut FreeMemoryBlock,
-            second_child as *mut FreeMemoryBlock,
+            std::ptr::from_mut::<FreeMemoryBlock>(first_child),
+            std::ptr::from_mut::<FreeMemoryBlock>(second_child),
         );
         unsafe {
             *first_child = FreeMemoryBlock::new(requested_block_size);
@@ -337,9 +337,9 @@ impl BuddySystem {
 
         match corresponding_block_list.pop() {
             // get a free block
-            Some(refer) => refer as *mut FreeMemoryBlock as *mut u8,
+            Some(refer) => std::ptr::from_mut::<FreeMemoryBlock>(refer) as *mut u8,
             // split one large block.
-            None => self.split_block(corresponding_block_size) as *mut u8,
+            None => self.split_block(corresponding_block_size).cast::<u8>(),
         }
     }
 
@@ -373,7 +373,7 @@ impl BuddySystem {
         };
 
         // merge child block and move doubled block to corresponding list
-        let mut block_ptr = ptr as *mut FreeMemoryBlock;
+        let mut block_ptr = ptr.cast::<FreeMemoryBlock>();
         while let Some(merged) = corresponding_list.append(&mut *block_ptr) {
             block_ptr = merged;
             corresponding_list = match corresponding_block_size {

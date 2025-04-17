@@ -41,7 +41,7 @@ impl FreeMemoryBlock {
     ///
     /// This method used to return address of parant block
     fn is_first_half(&self) -> bool {
-        let self_addr = self as *const Self as usize;
+        let self_addr = std::ptr::from_ref::<Self>(self) as usize;
         self_addr % self.size.bigger() as usize == 0
     }
 
@@ -77,7 +77,7 @@ impl FreeMemoryBlock {
             // return pointer of head of one
             if self.is_first_half() {
                 self.size = self.size.bigger();
-                unsafe { Some(&mut *(self as *mut Self)) }
+                unsafe { Some(&mut *std::ptr::from_mut::<Self>(self)) }
             } else {
                 let buddy = self.get_buddy();
                 buddy.size = buddy.size.bigger();

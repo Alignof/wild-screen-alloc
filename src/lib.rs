@@ -41,6 +41,7 @@ impl WildScreenAlloc {
     ///
     /// pub fn init_heap() { /* initialize ALLOCATOR */ }
     /// ```
+    #[must_use]
     pub fn empty() -> Self {
         WildScreenAlloc {
             buddy: Rc::new(Mutex::new(OnceCell::new())),
@@ -78,6 +79,7 @@ impl WildScreenAlloc {
     /// Create new allocator locked by mutex.
     /// # Safety
     /// `start_addr` must be aligned 4096.
+    #[must_use]
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         let new_buddy = OnceCell::new();
         new_buddy
@@ -126,13 +128,13 @@ unsafe impl GlobalAlloc for WildScreenAlloc {
                 .lock()
                 .get_mut()
                 .expect("Slab allocator is not initialized")
-                .deallocate(ptr, layout)
+                .deallocate(ptr, layout);
         } else {
             self.buddy
                 .lock()
                 .get_mut()
                 .expect("Buddy system is not initialized")
-                .deallocate(ptr, layout)
+                .deallocate(ptr, layout);
         }
     }
 }

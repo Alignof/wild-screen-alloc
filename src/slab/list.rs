@@ -22,7 +22,12 @@ impl List {
         default_node_num: usize,
         page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
-        let new_page_addr = page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
+        let new_page_addr = page_allocator
+            .lock()
+            .get_mut()
+            .unwrap()
+            .page_allocate()
+            .cast::<Slab>();
         List {
             len: default_node_num,
             head: unsafe { Some(Slab::new(obj_size, new_page_addr)) },
@@ -83,8 +88,12 @@ impl EmptyList {
         page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> &'static mut Slab {
         self.0.pop_slab().unwrap_or_else(|| {
-            let new_page_addr =
-                page_allocator.lock().get_mut().unwrap().page_allocate() as *mut Slab;
+            let new_page_addr = page_allocator
+                .lock()
+                .get_mut()
+                .unwrap()
+                .page_allocate()
+                .cast::<Slab>();
             unsafe { Slab::new(obj_size, new_page_addr) }
         })
     }
@@ -111,7 +120,10 @@ impl PartialList {
 
     /// Return the head pointer of the list.
     pub fn peek(&mut self) -> Option<*mut Slab> {
-        self.0.head.as_mut().map(|slab| *slab as *mut Slab)
+        self.0
+            .head
+            .as_mut()
+            .map(|slab| std::ptr::from_mut::<Slab>(*slab))
     }
 
     /// Search and pop slab that contains given free object.
