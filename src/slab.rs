@@ -219,7 +219,7 @@ impl Cache {
                 let empty_slab = self
                     .empty
                     .pop_slab(self.object_size, self.page_allocator.clone());
-                self.slab_migrate(empty_slab, SlabKind::Full);
+                self.slab_migrate(empty_slab, SlabKind::Partial);
                 self.allocate() // retry
             }
         }
