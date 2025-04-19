@@ -37,6 +37,10 @@ pub enum BlockSize {
 
 impl BlockSize {
     /// Return one step smaller size than itself.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called on `BlockSize::Byte4K`, as it is the minimum size.
     pub fn smaller(self) -> Self {
         match self {
             Self::Byte4K => panic!("Byte4K is min size block"),
@@ -88,20 +92,27 @@ impl BlockSize {
 }
 
 /// Manage memory blocks as buddy.
+///
+/// This structure keeps track of which blocks are split and which are merged,
+/// allowing the allocator to efficiently find buddies for merging.
 #[cfg_attr(debug_assertions, derive(Debug))]
 struct BuddyManager {
-    /// Base address of entire memory blocks
+    /// Base address of the memory region managed by this buddy system.
     base_addr: usize,
-    /// Buddy (two child of self) state
-    /// - 0: Unused or `BothUsed`
-    /// - 1: Splited (`OneUsed`)
+    /// Bitmap representing the state (split or merged) of parent blocks.
     ///
-    /// It indicate two child state of block, so minimum block does not require this one.
+    /// - 0: Indicates the corresponding block's children are either both free (and potentially merged) or both allocated.
+    /// - 1: Indicates the corresponding block is split, meaning one child is allocated and the other is free.
+    ///
+    /// The state tracks pairs of buddies. The smallest block size (`BlockSize::Byte4K`)
+    /// does not have children in this representation, so their state isn't stored directly here.
     buddy_state: [u8; (1 << (constants::NUM_OF_BUDDY_SIZE - 1)) / 8],
 }
 
 impl BuddyManager {
-    /// Constructor.
+    /// Creates a new `BuddyManager`.
+    ///
+    /// `base_addr` is the starting address of the heap region managed by the buddy system.
     pub fn new(base_addr: usize) -> Self {
         BuddyManager {
             base_addr,
@@ -109,17 +120,25 @@ impl BuddyManager {
         }
     }
 
-    /// Get a buddy state.
+    /// Gets the split state of the parent buddy block for a given index.
+    /// `index` corresponds to the internal representation of the parent block.
     fn get_state(&self, index: usize) -> bool {
         (self.buddy_state[index / 8] >> (index % 8)) & 1 == 1
     }
 
-    /// Flip a buddy state.
+    /// Flips the split state of the parent buddy block for a given index.
+    /// `index` corresponds to the internal representation of the parent block.
     fn flip_state(&mut self, index: usize) {
         self.buddy_state[index / 8] ^= 1 << (index % 8);
     }
 
-    /// Convert a block pointer to a buddy index.
+    /// Converts a block pointer to the internal index used for state tracking.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `block_ptr` points to a valid `FreeMemoryBlock`
+    /// within the managed heap region and that its `size` field is correctly initialized.
+    /// Accessing `(*block_ptr).size` is unsafe because `block_ptr` might be invalid.
     fn ptr_to_index(&self, block_ptr: *const FreeMemoryBlock) -> usize {
         let block_addr = block_ptr as usize;
         let addr_offset = block_addr - self.base_addr;
@@ -129,14 +148,26 @@ impl BuddyManager {
         buddy_index_start + buddy_index_offset
     }
 
-    /// Recives a pointer and flip buddy state.
+    /// Flips the buddy state corresponding to the given block pointer.
+    /// This marks the parent block as either split or potentially mergeable.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `block_ptr` points to a valid `FreeMemoryBlock`
+    /// within the managed heap region and that its `size` field is correctly initialized.   
     pub fn flip_buddy_state(&mut self, block_ptr: *const FreeMemoryBlock) {
         let buddy_index = self.ptr_to_index(block_ptr);
         let parant_buddy_index = (buddy_index - 1) / 2;
         self.flip_state(parant_buddy_index);
     }
 
-    /// Returns whether the block pointed to by the pointer is mergeable or not.
+    /// Checks if the buddy of the block pointed to by `block_ptr` is free,
+    /// indicating that the blocks are potentially mergeable.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `block_ptr` points to a valid `FreeMemoryBlock`
+    /// within the managed heap region and that its `size` field is correctly initialized.
     pub fn is_mergeable(&self, block_ptr: *const FreeMemoryBlock) -> bool {
         let buddy_index = self.ptr_to_index(block_ptr);
         let parant_buddy_index = (buddy_index - 1) / 2;
@@ -353,6 +384,7 @@ impl BuddySystem {
     }
 
     /// Deallocate(free) object.
+    ///
     /// # Safety
     /// Given pointer must be valid.
     ///

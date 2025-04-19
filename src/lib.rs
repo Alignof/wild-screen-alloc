@@ -104,7 +104,7 @@ impl WildScreenAlloc {
 }
 
 unsafe impl GlobalAlloc for WildScreenAlloc {
-    /// Just call `SlabAllocator::allocte`.
+    /// Allocate memory blocks according to the specified layout.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if layout.size() < 4096 {
             self.slab
@@ -121,7 +121,12 @@ unsafe impl GlobalAlloc for WildScreenAlloc {
         }
     }
 
-    /// Just call `SlabAllocator::deallocate`.
+    /// Free memory region which was allocated by this crate.
+    ///
+    /// # Safety
+    ///
+    /// The given pointer `ptr` must have been previously allocated by this allocator
+    /// with the same `layout`.`SlabAllocator::deallocate`.
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         if layout.size() < 4096 {
             self.slab

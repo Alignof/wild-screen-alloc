@@ -46,7 +46,16 @@ impl List {
         self.head = Some(slab);
     }
 
-    /// Pop `Slab`.
+    /// Pop `Slab` from the list.
+    ///
+    /// If the list is empty, new Slab is allocated from new page.
+    ///
+    /// # Safety
+    ///
+    /// If a new page needs to be allocated, this function relies on the `page_allocator`
+    /// returning a valid, page-aligned pointer to a memory region of at least `PAGE_SIZE`.
+    /// The allocated page is then initialized via `Slab::new`, which itself is unsafe
+    /// and requires the pointer to be valid.
     fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.head.take().map(|slab| {
             self.head = slab.next.take();
