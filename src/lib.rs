@@ -31,8 +31,10 @@ pub struct WildScreenAlloc {
 }
 
 impl WildScreenAlloc {
-    /// Return empty `WildScreenAlloc`.
-    /// This method exist for to initialize after heap address available.
+    /// Returns an empty `WildScreenAlloc` instance.
+    /// This method exists so that the allocator can be initialized after the h7eap address
+    /// becomes available.
+    ///
     /// ```no_run
     /// use wild_screen_alloc::WildScreenAlloc;
     ///
@@ -78,7 +80,7 @@ impl WildScreenAlloc {
 
     /// Create new allocator locked by mutex.
     /// # Safety
-    /// `start_addr` must be aligned 4096.
+    /// `start_addr` must be page-aligned (4096 bytes).
     #[must_use]
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         let new_buddy = OnceCell::new();
@@ -104,7 +106,9 @@ impl WildScreenAlloc {
 }
 
 unsafe impl GlobalAlloc for WildScreenAlloc {
-    /// Allocate memory blocks according to the specified layout.
+    /// Allocate memory.
+    /// Delegetes to `SlabAllocator::allocate` for layouts smaller than the page size, or to
+    /// `BuddySystem::allocate` for larger layouts.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if layout.size() < 4096 {
             self.slab
@@ -121,12 +125,14 @@ unsafe impl GlobalAlloc for WildScreenAlloc {
         }
     }
 
-    /// Free memory region which was allocated by this crate.
+    /// Deallocate memory.
+    /// Delegetes to `SlabAllocator::allocate` for layouts smaller than the page size, or to
+    /// `BuddySystem::allocate` for larger layouts.
     ///
     /// # Safety
     ///
     /// The given pointer `ptr` must have been previously allocated by this allocator
-    /// with the same `layout`.`SlabAllocator::deallocate`.
+    /// with the same `layout`.
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         if layout.size() < 4096 {
             self.slab

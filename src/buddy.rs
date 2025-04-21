@@ -1,6 +1,6 @@
 //! Implementation of buddy system.
 //!
-//! ref: [https://github.com/evanw/buddy-malloc](https://github.com/evanw/buddy-malloc)
+//! Reference: [https://github.com/evanw/buddy-malloc](https://github.com/evanw/buddy-malloc)
 
 mod list;
 
@@ -249,6 +249,9 @@ impl BuddySystem {
     }
 
     /// Allocate memory blocks to the largest list of block sizes that can be allocated
+    ///
+    /// # Safety
+    /// `start_addr` must be page-aligned (4096 bytes)
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         assert!(start_addr % constants::PAGE_SIZE == 0);
         let mut new_lists = Self::new_empty(start_addr);
