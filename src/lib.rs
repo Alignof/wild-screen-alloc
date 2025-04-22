@@ -79,8 +79,12 @@ impl WildScreenAlloc {
     }
 
     /// Create new allocator locked by mutex.
+    ///
     /// # Safety
     /// `start_addr` must be page-aligned (4096 bytes).
+    ///
+    /// # Panics
+    /// It will be paniced when failed to initialize `OnceCell`.
     #[must_use]
     pub unsafe fn new(start_addr: usize, heap_size: usize) -> Self {
         let new_buddy = OnceCell::new();
