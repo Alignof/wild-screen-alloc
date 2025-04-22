@@ -118,6 +118,7 @@ impl Slab {
     }
 
     /// Pop free object.
+    #[allow(clippy::manual_inspect)]
     fn pop(&mut self) -> Option<&'static mut FreeObject> {
         self.free_obj_head.take().map(|node| {
             self.free_obj_head = node.next.take();
@@ -174,7 +175,7 @@ impl Cache {
         let empty = list::EmptyList::new(
             object_size,
             constants::DEFAULT_SLAB_NUM,
-            page_allocator.clone(),
+            &page_allocator.clone(),
         );
 
         Cache {
@@ -200,11 +201,12 @@ impl Cache {
     }
 
     /// Return object address according to `layout.size`.
+    #[allow(clippy::single_match_else)]
     pub fn allocate(&mut self) -> *mut u8 {
         match self.partial.peek() {
             Some(partial_slab_ptr) => unsafe {
                 match (*partial_slab_ptr).pop() {
-                    Some(obj) => std::ptr::from_mut::<FreeObject>(obj) as *mut u8,
+                    Some(obj) => core::ptr::from_mut::<FreeObject>(obj).cast::<u8>(),
                     None => {
                         // partial -> full
                         let full_slab = self.partial.pop_slab().unwrap();
@@ -218,7 +220,7 @@ impl Cache {
                 // empty -> partial
                 let empty_slab = self
                     .empty
-                    .pop_slab(self.object_size, self.page_allocator.clone());
+                    .pop_slab(self.object_size, &self.page_allocator.clone());
                 self.slab_migrate(empty_slab, SlabKind::Partial);
                 self.allocate() // retry
             }
@@ -226,6 +228,7 @@ impl Cache {
     }
 
     /// Free object according to `layout.size`.
+    #[allow(clippy::cast_ptr_alignment)]
     pub fn deallocate(&mut self, ptr: *mut u8) {
         let obj_ptr = ptr.cast::<FreeObject>();
 
@@ -256,25 +259,26 @@ impl Cache {
 
 /// Slab allocator that provide global allocator.
 /// If allocate size over 4096 bytes, it delegate to `linked_list_allocator`.
+#[allow(clippy::struct_field_names)]
 pub struct SlabAllocator {
     /// 8 bytes slab cache.
-    slab_8_bytes: Cache,
+    slabs_8_bytes: Cache,
     /// 16 bytes slab cache.
-    slab_16_bytes: Cache,
+    slabs_16_bytes: Cache,
     /// 32 bytes slab cache.
-    slab_32_bytes: Cache,
+    slabs_32_bytes: Cache,
     /// 64 bytes slab cache.
-    slab_64_bytes: Cache,
+    slabs_64_bytes: Cache,
     /// 128 bytes slab cache.
-    slab_128_bytes: Cache,
+    slabs_128_bytes: Cache,
     /// 256 bytes slab cache.
-    slab_256_bytes: Cache,
+    slabs_256_bytes: Cache,
     /// 512 bytes slab cache.
-    slab_512_bytes: Cache,
+    slabs_512_bytes: Cache,
     /// 1024 bytes slab cache.
-    slab_1024_bytes: Cache,
+    slabs_1024_bytes: Cache,
     /// 2048 bytes slab cache.
-    slab_2048_bytes: Cache,
+    slabs_2048_bytes: Cache,
 }
 
 impl SlabAllocator {
@@ -288,33 +292,33 @@ impl SlabAllocator {
     pub unsafe fn new(
         _start_addr: usize,
         _heap_size: usize,
-        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: &Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         SlabAllocator {
-            slab_8_bytes: Cache::new(ObjectSize::Byte8, page_allocator.clone()),
-            slab_16_bytes: Cache::new(ObjectSize::Byte16, page_allocator.clone()),
-            slab_32_bytes: Cache::new(ObjectSize::Byte32, page_allocator.clone()),
-            slab_64_bytes: Cache::new(ObjectSize::Byte64, page_allocator.clone()),
-            slab_128_bytes: Cache::new(ObjectSize::Byte128, page_allocator.clone()),
-            slab_256_bytes: Cache::new(ObjectSize::Byte256, page_allocator.clone()),
-            slab_512_bytes: Cache::new(ObjectSize::Byte512, page_allocator.clone()),
-            slab_1024_bytes: Cache::new(ObjectSize::Byte1024, page_allocator.clone()),
-            slab_2048_bytes: Cache::new(ObjectSize::Byte2048, page_allocator.clone()),
+            slabs_8_bytes: Cache::new(ObjectSize::Byte8, page_allocator.clone()),
+            slabs_16_bytes: Cache::new(ObjectSize::Byte16, page_allocator.clone()),
+            slabs_32_bytes: Cache::new(ObjectSize::Byte32, page_allocator.clone()),
+            slabs_64_bytes: Cache::new(ObjectSize::Byte64, page_allocator.clone()),
+            slabs_128_bytes: Cache::new(ObjectSize::Byte128, page_allocator.clone()),
+            slabs_256_bytes: Cache::new(ObjectSize::Byte256, page_allocator.clone()),
+            slabs_512_bytes: Cache::new(ObjectSize::Byte512, page_allocator.clone()),
+            slabs_1024_bytes: Cache::new(ObjectSize::Byte1024, page_allocator.clone()),
+            slabs_2048_bytes: Cache::new(ObjectSize::Byte2048, page_allocator.clone()),
         }
     }
 
     /// Allocates a new object.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
         match Self::get_slab_size(&layout) {
-            ObjectSize::Byte8 => self.slab_8_bytes.allocate(),
-            ObjectSize::Byte16 => self.slab_16_bytes.allocate(),
-            ObjectSize::Byte32 => self.slab_32_bytes.allocate(),
-            ObjectSize::Byte64 => self.slab_64_bytes.allocate(),
-            ObjectSize::Byte128 => self.slab_128_bytes.allocate(),
-            ObjectSize::Byte256 => self.slab_256_bytes.allocate(),
-            ObjectSize::Byte512 => self.slab_512_bytes.allocate(),
-            ObjectSize::Byte1024 => self.slab_1024_bytes.allocate(),
-            ObjectSize::Byte2048 => self.slab_2048_bytes.allocate(),
+            ObjectSize::Byte8 => self.slabs_8_bytes.allocate(),
+            ObjectSize::Byte16 => self.slabs_16_bytes.allocate(),
+            ObjectSize::Byte32 => self.slabs_32_bytes.allocate(),
+            ObjectSize::Byte64 => self.slabs_64_bytes.allocate(),
+            ObjectSize::Byte128 => self.slabs_128_bytes.allocate(),
+            ObjectSize::Byte256 => self.slabs_256_bytes.allocate(),
+            ObjectSize::Byte512 => self.slabs_512_bytes.allocate(),
+            ObjectSize::Byte1024 => self.slabs_1024_bytes.allocate(),
+            ObjectSize::Byte2048 => self.slabs_2048_bytes.allocate(),
         }
     }
 
@@ -326,15 +330,15 @@ impl SlabAllocator {
     /// If given ptr is null, it will panic.
     pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
         match Self::get_slab_size(&layout) {
-            ObjectSize::Byte8 => self.slab_8_bytes.deallocate(ptr),
-            ObjectSize::Byte16 => self.slab_16_bytes.deallocate(ptr),
-            ObjectSize::Byte32 => self.slab_32_bytes.deallocate(ptr),
-            ObjectSize::Byte64 => self.slab_64_bytes.deallocate(ptr),
-            ObjectSize::Byte128 => self.slab_128_bytes.deallocate(ptr),
-            ObjectSize::Byte256 => self.slab_256_bytes.deallocate(ptr),
-            ObjectSize::Byte512 => self.slab_512_bytes.deallocate(ptr),
-            ObjectSize::Byte1024 => self.slab_1024_bytes.deallocate(ptr),
-            ObjectSize::Byte2048 => self.slab_2048_bytes.deallocate(ptr),
+            ObjectSize::Byte8 => self.slabs_8_bytes.deallocate(ptr),
+            ObjectSize::Byte16 => self.slabs_16_bytes.deallocate(ptr),
+            ObjectSize::Byte32 => self.slabs_32_bytes.deallocate(ptr),
+            ObjectSize::Byte64 => self.slabs_64_bytes.deallocate(ptr),
+            ObjectSize::Byte128 => self.slabs_128_bytes.deallocate(ptr),
+            ObjectSize::Byte256 => self.slabs_256_bytes.deallocate(ptr),
+            ObjectSize::Byte512 => self.slabs_512_bytes.deallocate(ptr),
+            ObjectSize::Byte1024 => self.slabs_1024_bytes.deallocate(ptr),
+            ObjectSize::Byte2048 => self.slabs_2048_bytes.deallocate(ptr),
         }
     }
 

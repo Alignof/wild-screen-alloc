@@ -75,7 +75,7 @@ impl WildScreenAlloc {
             .get_or_init(|| buddy::BuddySystem::new(start_addr, heap_size));
         self.slab
             .lock()
-            .get_or_init(|| slab::SlabAllocator::new(start_addr, heap_size, self.buddy.clone()));
+            .get_or_init(|| slab::SlabAllocator::new(start_addr, heap_size, &self.buddy.clone()));
     }
 
     /// Create new allocator locked by mutex.
@@ -98,7 +98,7 @@ impl WildScreenAlloc {
             .set(slab::SlabAllocator::new(
                 start_addr,
                 heap_size,
-                buddy.clone(),
+                &buddy.clone(),
             ))
             .unwrap_or_else(|_| panic!("SlabAllocator initialization failed"));
 

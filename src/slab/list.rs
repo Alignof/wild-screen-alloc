@@ -17,10 +17,11 @@ pub struct List {
 
 impl List {
     /// Return initialized Slab.
+    #[allow(clippy::cast_ptr_alignment)]
     pub fn new(
         obj_size: ObjectSize,
         default_node_num: usize,
-        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: &Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         let new_page_addr = page_allocator
             .lock()
@@ -56,6 +57,7 @@ impl List {
     /// returning a valid, page-aligned pointer to a memory region of at least `PAGE_SIZE`.
     /// The allocated page is then initialized via `Slab::new`, which itself is unsafe
     /// and requires the pointer to be valid.
+    #[allow(clippy::manual_inspect)]
     fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.head.take().map(|slab| {
             self.head = slab.next.take();
@@ -73,7 +75,7 @@ impl EmptyList {
     pub fn new(
         obj_size: ObjectSize,
         default_node_num: usize,
-        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: &Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> Self {
         EmptyList(List::new(obj_size, default_node_num, page_allocator))
     }
@@ -91,10 +93,11 @@ impl EmptyList {
     /// Pop `Slab` from the list.
     ///
     /// If list is empty, new Slab allocate from new page.
+    #[allow(clippy::cast_ptr_alignment)]
     pub fn pop_slab(
         &mut self,
         obj_size: ObjectSize,
-        page_allocator: Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
+        page_allocator: &Rc<Mutex<OnceCell<buddy::BuddySystem>>>,
     ) -> &'static mut Slab {
         self.0.pop_slab().unwrap_or_else(|| {
             let new_page_addr = page_allocator
