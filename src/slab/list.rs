@@ -81,6 +81,7 @@ impl EmptyList {
     }
 
     /// Create new empty list.
+    #[allow(dead_code)]
     pub fn new_empty() -> Self {
         EmptyList(List::new_empty())
     }
@@ -147,9 +148,9 @@ impl PartialList {
         while let Some(slab) = next_slab {
             if slab.is_contain(obj_ptr) {
                 return Some(slab);
-            } else {
-                next_slab = slab.next.take();
             }
+
+            next_slab = slab.next.take();
         }
 
         None
@@ -171,6 +172,7 @@ impl FullList {
     }
 
     /// Pop `Slab` from the list.
+    #[allow(dead_code)]
     pub fn pop_slab(&mut self) -> Option<&'static mut Slab> {
         self.0.pop_slab()
     }
@@ -184,9 +186,9 @@ impl FullList {
         while let Some(slab) = next_slab {
             if slab.is_contain(obj_ptr) {
                 return Some(slab);
-            } else {
-                next_slab = slab.next.take();
             }
+
+            next_slab = slab.next.take();
         }
 
         None
