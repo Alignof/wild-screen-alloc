@@ -71,7 +71,7 @@ impl BlockSize {
     }
 
     /// Return log 2 of itself.
-    pub fn log2(&self) -> usize {
+    pub fn log2(self) -> usize {
         match self {
             Self::Byte4K => 12,
             Self::Byte8K => 13,
@@ -86,7 +86,7 @@ impl BlockSize {
     }
 
     /// Return `log2_(self) - log2_(Byte4K)`
-    pub fn index(&self) -> usize {
+    pub fn index(self) -> usize {
         self.log2() - Self::Byte4K.log2()
     }
 }
@@ -269,27 +269,27 @@ impl BuddySystem {
                 new_lists.max_block_size = BlockSize::Byte16K;
                 new_lists.block_16k_bytes.initialize(start_addr);
             }
-            0x8000..0x10000 => {
+            0x8000..0x1_0000 => {
                 new_lists.max_block_size = BlockSize::Byte32K;
                 new_lists.block_32k_bytes.initialize(start_addr);
             }
-            0x10000..0x20000 => {
+            0x1_0000..0x2_0000 => {
                 new_lists.max_block_size = BlockSize::Byte64K;
                 new_lists.block_64k_bytes.initialize(start_addr);
             }
-            0x20000..0x40000 => {
+            0x2_0000..0x4_0000 => {
                 new_lists.max_block_size = BlockSize::Byte128K;
                 new_lists.block_128k_bytes.initialize(start_addr);
             }
-            0x40000..0x80000 => {
+            0x4_0000..0x8_0000 => {
                 new_lists.max_block_size = BlockSize::Byte256K;
                 new_lists.block_256k_bytes.initialize(start_addr);
             }
-            0x80000..0x100000 => {
+            0x8_0000..0x10_0000 => {
                 new_lists.max_block_size = BlockSize::Byte512K;
                 new_lists.block_512k_bytes.initialize(start_addr);
             }
-            0x100000..0x200000 => {
+            0x10_0000..0x20_0000 => {
                 new_lists.max_block_size = BlockSize::Byte1024K;
                 new_lists.block_1024k_bytes.initialize(start_addr);
             }
@@ -371,7 +371,7 @@ impl BuddySystem {
 
         match corresponding_block_list.pop() {
             // get a free block
-            Some(refer) => std::ptr::from_mut::<FreeMemoryBlock>(refer) as *mut u8,
+            Some(refer) => std::ptr::from_mut::<FreeMemoryBlock>(refer).cast::<u8>(),
             // split one large block.
             None => self.split_block(corresponding_block_size).cast::<u8>(),
         }
@@ -393,6 +393,7 @@ impl BuddySystem {
     ///
     /// # Panics
     /// If given ptr is null, it will panic.
+    #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
         let corresponding_block_size = Self::get_memory_block_size(&layout);
         let mut corresponding_list = match corresponding_block_size {
@@ -431,12 +432,12 @@ impl BuddySystem {
             0x1000..0x2000 => BlockSize::Byte4K,
             0x2000..0x4000 => BlockSize::Byte8K,
             0x4000..0x8000 => BlockSize::Byte16K,
-            0x8000..0x10000 => BlockSize::Byte32K,
-            0x10000..0x20000 => BlockSize::Byte64K,
-            0x20000..0x40000 => BlockSize::Byte128K,
-            0x40000..0x80000 => BlockSize::Byte256K,
-            0x80000..0x100000 => BlockSize::Byte512K,
-            0x100000..0x200000 => BlockSize::Byte1024K,
+            0x8000..0x1_0000 => BlockSize::Byte32K,
+            0x1_0000..0x2_0000 => BlockSize::Byte64K,
+            0x2_0000..0x4_0000 => BlockSize::Byte128K,
+            0x4_0000..0x8_0000 => BlockSize::Byte256K,
+            0x8_0000..0x10_0000 => BlockSize::Byte512K,
+            0x10_0000..0x20_0000 => BlockSize::Byte1024K,
             _ => panic!("requested size is too large"),
         }
     }

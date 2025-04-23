@@ -113,7 +113,7 @@ impl MemoryBlockList {
     /// Append memory block greedily from raw pointer.
     /// It used for initialize this.
     pub fn initialize(&mut self, start_addr: usize) {
-        assert!(start_addr as usize % self.block_size as usize == 0);
+        assert!(start_addr % self.block_size as usize == 0);
         let new_header_ptr = start_addr as *mut FreeMemoryBlock;
         unsafe {
             *new_header_ptr = FreeMemoryBlock::new(self.block_size);
@@ -136,6 +136,7 @@ impl MemoryBlockList {
     }
 
     /// Pop free memory block
+    #[allow(clippy::manual_inspect)]
     pub fn pop(&mut self) -> Option<&'static mut FreeMemoryBlock> {
         self.head.take().map(|header| {
             self.head = header.next.take();
